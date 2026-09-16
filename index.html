@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Карта стратегических навыков</title>
+<meta name="description" content="Базовый тест: 15 минут, шесть ситуаций и короткая записка." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<!-- Шрифт грузим не блокируя разбор: media="print" + onload. Тот же приём, что на платформе. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
+
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+<header class="hdr">
+  <div class="frame hdr-in">
+    <span class="logo">futureproof<span class="logo-arrow">▸</span><span class="logo-prod">карта навыков</span></span>
+    <span class="kicker kicker-inline" id="hdrLabel">Базовый тест</span>
+  </div>
+</header>
+
+<!-- прогресс: виден только внутри блоков -->
+<div class="progress hidden" id="progress">
+  <div class="frame progress-in">
+    <span class="progress-num" id="progressNum">1 / 7</span>
+    <span class="progress-seg" id="progressSeg"></span>
+  </div>
+</div>
+
+<main>
+
+<!-- 1. вход -->
+<section class="frame enter" id="screenEnter">
+  <p class="kicker">Вход</p>
+  <h1 class="hero-h">Карта<br /><em>стратегических</em><br />навыков</h1>
+  <p class="lead read" style="margin-top:24px">Пятнадцать минут: шесть ситуаций с расстановкой ответов и одна короткая записка.</p>
+
+  <form id="enterForm" autocomplete="off">
+    <p class="kicker" style="margin-bottom:8px"><label for="codeInput">Код сессии</label></p>
+    <input class="code-in" id="codeInput" name="code" maxlength="6" inputmode="latin"
+           autocapitalize="characters" spellcheck="false" placeholder="XXXXXX" aria-describedby="codeHint" />
+    <p class="util" id="codeHint" style="margin:8px 0 20px">Шесть символов — их называет ведущий.</p>
+    <button class="btn btn-primary" id="enterBtn" type="submit" disabled>Начать</button>
+  </form>
+
+  <p class="err hidden" id="enterErr" role="alert"></p>
+</section>
+
+<!-- 2. как отвечать -->
+<section class="frame enter hidden" id="screenIntro">
+  <p class="kicker">Как отвечать</p>
+  <h2 class="screen-h read">Расставьте варианты от сильного к слабому</h2>
+  <div class="read">
+    <p>В каждой ситуации пять вариантов. Нажмите на тот, который считаете лучшим, — он получит номер&nbsp;1. Дальше по убыванию: второй, третий и так до пятого.</p>
+    <p>Нажали не туда — нажмите на вариант ещё раз, номер снимется. «Дальше» включается, когда расставлены все пять.</p>
+    <p class="muted">Правильных ответов в привычном смысле здесь нет: важно, как вы различаете силу вариантов.</p>
+  </div>
+  <div class="info read" style="margin:24px 0">
+    <p class="kicker" style="margin-bottom:6px">Что дальше</p>
+    <p style="margin:0">Шесть ситуаций, затем записка на 150–250 слов. Вернуться к предыдущей ситуации можно, к отправленному ответу — нет.</p>
+  </div>
+  <button class="btn btn-primary" id="introBtn" type="button">Начать блок А</button>
+</section>
+
+<!-- 3. блок А -->
+<section class="frame situation hidden" id="screenA">
+  <!-- Коды способностей участнику не показываем: спека v1.0 убрала их из текста участника. -->
+  <p class="kicker" id="aFactor">Ситуация 1 из 6</p>
+  <p class="case read" id="aCase"></p>
+  <h2 class="question read" id="aQuestion"></h2>
+  <p class="hint util read" id="aHint">Нажимайте по очереди: от самого сильного к самому слабому.</p>
+
+  <ul class="opts" id="aOptions"></ul>
+
+  <div class="nav-row">
+    <button class="btn btn-ghost btn-sm" id="aBack" type="button">Назад</button>
+    <button class="btn btn-primary" id="aNext" type="button" disabled>Дальше</button>
+    <span class="nav-note" id="aNote">Расставьте все пять</span>
+  </div>
+</section>
+
+<!-- 4. блок Б -->
+<section class="frame situation hidden" id="screenB">
+  <p class="kicker">Блок Б · Записка совету директоров</p>
+  <p class="case read" id="bCase"></p>
+  <h2 class="question read" id="bTask"></h2>
+
+  <label class="kicker" for="bAnswer" style="display:block;margin:20px 0 8px">Ваш ответ</label>
+  <textarea class="answer" id="bAnswer" placeholder="Пишите здесь." spellcheck="true"></textarea>
+
+  <div class="count-row">
+    <span class="count" id="bCount"><b>0</b> слов</span>
+    <span class="util" id="bTarget">Ориентир — 150–250 слов, отправка открывается со 100.</span>
+  </div>
+
+  <div class="nav-row">
+    <button class="btn btn-ghost btn-sm" id="bBack" type="button">Назад</button>
+    <button class="btn btn-primary" id="bSend" type="button" disabled>Отправить</button>
+  </div>
+
+  <p class="err hidden" id="bErr" role="alert"></p>
+</section>
+
+<!-- 5. ожидание -->
+<section class="frame wait hidden" id="screenWait">
+  <p class="kicker">Отправлено</p>
+  <h2 class="screen-h">Читаем ваш ответ</h2>
+  <p>Оценка свободного ответа занимает 10–20 секунд. Не закрывайте страницу.</p>
+  <div class="wait-bar" aria-hidden="true"><span class="wait-fill"></span></div>
+  <p class="util" id="waitNote" role="status">Считаем расстановку…</p>
+</section>
+
+<!-- 6. карта участника -->
+<section class="frame map hidden" id="screenMap">
+  <p class="kicker">Результат</p>
+  <h2 class="hero-h" style="font-size:var(--fs-place);text-transform:none">Ваша карта</h2>
+  <p class="lead read" style="margin-top:12px">Пять навыков. Зона показывает, как вы различаете силу ходов; уровень — что из этого вы сделали в собственном тексте.</p>
+
+  <div id="mapSkills"></div>
+
+  <div class="gap-line hidden" id="gapLine"></div>
+
+  <div style="margin:32px 0 0" class="read">
+    <p class="kicker">Обратная связь</p>
+    <div id="feedbackBox"></div>
+  </div>
+
+  <div style="margin:32px 0 0">
+    <p class="util">Результат сохранён. Ведущий видит только сводку по группе — без имён и без текстов.</p>
+  </div>
+</section>
+
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/test.js"></script>
+</body>
+</html>

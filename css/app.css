@@ -1,0 +1,740 @@
+/* Базовый тест «Карта стратегических навыков» — стиль.
+   Токены скопированы из платформы «Искра» (imp.v3/css/styles.css, :root) и её
+   DESIGN.md. Копия намеренная: проекты живут независимо, ничего не импортируется.
+   Литеральных цветов и кеглей вне :root здесь нет и быть не должно. */
+
+:root {
+  /* ---- цвет ---- */
+  --accent: #ff4800;       /* вермилион — единственный акцент */
+  --accent-dim: #e63f00;   /* ховер залитой кнопки */
+  --accent-tint: #fff2ec;  /* бледная заливка подсвеченной строки */
+  --accent-line: #ffd7c7;
+  --accent-ink: #c73500;   /* мелкий текст на --accent-tint: 4.9:1; сам --accent даёт 3.1:1 */
+
+  /* голубая семья: в Искре «вы»/служебное; здесь — акцент внутри теста */
+  --jb: #89bbf1;
+  --band: #eaf3fb;
+  --band-line: #bcd9f2;
+  --jb-ink: #2f6bb0;       /* читаемый синий: --jb на бумаге даёт ≈2:1, ниже порога 3:1 */
+
+  --ink: #181818;
+  --paper: #ffffff;
+  --muted: #6b6e73;
+  --muted-soft: #71747a;   /* ≈4.8:1 на белом: текст, плейсхолдеры, хинты */
+  --hairline: #e7e7e7;
+  --soft: #f5f5f6;
+
+  /* ---- шрифт ---- */
+  --ff-display: 'Inter Tight', sans-serif;
+  --ff-body: 'Inter Tight', sans-serif;
+
+  /* ---- шкала кегля участника ---- */
+  --fs-hero: clamp(34px, 4.4vw, 60px);
+  --fs-place: 26px;   /* заголовок экрана */
+  --fs-lead: 20px;    /* фраза под заголовком — то, что читают первым */
+  --fs-sub: 16px;     /* подзаголовок раздела */
+  --fs-read: 16px;    /* всё, что читают: кейс, варианты, поле ответа */
+  --fs-dense: 14px;   /* плотные списки, справка */
+  --fs-util: 12px;    /* служебное: статусы, записки у кнопок */
+  --fs-logo: 18px;
+
+  /* ---- операторская шкала: только host.html ----
+     Смешивать со шкалой участника нельзя — в Искре это стоило тридцати кеглей. */
+  --fs-op-xl: 20px;
+  --fs-op-h: 15px;
+  --fs-op: 13px;
+  --fs-op-sm: 11px;
+
+  /* ---- метка: один рецепт на всю систему ---- */
+  --label-size: 11px;
+  --label-weight: 600;
+  --label-track: 0.1em;
+
+  /* ---- раскладка ---- */
+  --maxw: clamp(1120px, 92vw, 1560px);
+  --w-read: 60ch;    /* чтение: кейс, вопросы, варианты */
+  --w-form: 880px;   /* письмо: текстареа */
+  --frame-pad: clamp(20px, 4vw, 56px);
+  --radius: 8px;     /* радиус ОДИН на весь проект */
+}
+
+/* Экраны блоков А и Б — вся семья акцента голубая.
+   Правило из Искры (body.p-assess): внутри ассессмента вермилиона нет, он остаётся
+   на входе и на результатах. Подменяются значения токенов, ни одно правило ниже
+   про это не знает. */
+body.p-test {
+  --accent: #2f6bb0;
+  --accent-dim: #24558c;
+  --accent-ink: #2f6bb0;
+  --accent-tint: #eaf3fb;
+  --accent-line: #bcd9f2;
+}
+
+/* ---------- база ---------- */
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--ff-body);
+  font-size: var(--fs-read);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+a { color: inherit; }
+p { margin: 0 0 1em; }
+p:last-child { margin-bottom: 0; }
+
+/* Теней нет нигде: глубина — hairline-линии и бледные тинт-заливки. */
+hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
+
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- рамка: шапка и тело на одной колонке ----------
+   Разъедутся — лого перестанет стоять по левому краю контента. Самый частый
+   дефект в Искре, повторять не будем. */
+
+.frame {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--frame-pad);
+}
+
+.read { max-width: var(--w-read); }
+.form-w { max-width: var(--w-form); }
+
+/* ---------- шапка ---------- */
+
+.hdr {
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.hdr-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: var(--fs-logo);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.logo-arrow { color: var(--accent); }
+
+.logo-prod {
+  margin-left: 3px;
+  font-weight: 600;
+  color: var(--muted-soft);
+}
+
+/* ---------- метка / kicker ---------- */
+
+.kicker {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted-soft);
+  margin: 0 0 10px;
+}
+
+.kicker-inline { margin: 0; }
+
+/* ---------- типографика экранов ---------- */
+
+.hero-h {
+  font-family: var(--ff-display);
+  font-weight: 800;
+  font-size: var(--fs-hero);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.hero-h em { font-style: normal; color: var(--accent); }
+
+.screen-h {
+  font-weight: 700;
+  font-size: var(--fs-place);
+  line-height: 1.15;
+  margin: 0 0 12px;
+}
+
+.lead {
+  font-size: var(--fs-lead);
+  color: var(--ink);
+  margin: 0 0 24px;
+}
+
+.sub {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.muted { color: var(--muted); }
+.util { font-size: var(--fs-util); color: var(--muted-soft); }
+.dense { font-size: var(--fs-dense); }
+
+/* ---------- кнопки ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--ff-body);
+  font-weight: 700;
+  font-size: var(--fs-read);
+  padding: 14px 24px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  white-space: nowrap;
+}
+
+.btn-primary { background: var(--accent); color: var(--paper); }
+.btn-primary:hover { background: var(--accent-dim); }
+
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--hairline); }
+.btn-ghost:hover { border-color: var(--ink); }
+
+.btn-block { width: 100%; }
+.btn-sm { padding: 11px 20px; font-size: var(--fs-dense); }
+
+.btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---------- карточка ---------- */
+
+.card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--paper);
+}
+
+.info {
+  background: var(--soft);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* ---------- тег ---------- */
+
+.tag {
+  display: inline-block;
+  font-size: var(--fs-util);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  color: var(--muted-soft);
+  background: var(--paper);
+  white-space: nowrap;
+}
+
+.tag-strong { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+.tag-soft { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-ink); }
+
+/* ---------- прогресс: сегментный, трек серый, заливка акцентом ---------- */
+
+.progress {
+  position: sticky;
+  top: 57px;
+  z-index: 9;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+  padding: 12px 0;
+}
+
+.progress-in {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-seg {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.seg {
+  height: 4px;
+  flex: 1;
+  background: var(--hairline);
+  border-radius: 2px;
+}
+
+.seg.is-done { background: var(--accent); }
+.seg.is-now { background: var(--accent); opacity: 0.45; }
+
+.progress-num {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted-soft);
+  white-space: nowrap;
+}
+
+/* ---------- блок А: расстановка тапами ---------- */
+
+.situation { padding: 28px 0 40px; }
+
+.case {
+  font-size: var(--fs-read);
+  color: var(--ink);
+  margin: 0 0 20px;
+}
+
+.question {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.hint { margin: 0 0 20px; }
+
+.opts {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: var(--w-read);
+}
+
+/* Плитка-вариант. Кнопка, а не div: нужны фокус, Enter/Space и роль для скринридера. */
+.opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+  /* убирает подсветку-вспышку при тапе на телефоне */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.opt:hover { border-color: var(--muted-soft); }
+
+.opt.is-ranked {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+
+/* Ранг. Пустой — контур, поставленный — заливка: форма различает состояния,
+   если цвет не прочитался. */
+.opt-rank {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-dense);
+  font-weight: 700;
+  color: var(--muted-soft);
+  background: var(--paper);
+}
+
+.opt.is-ranked .opt-rank {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+}
+
+.opt-text { flex: 1; min-width: 0; }
+
+.opt-note {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-util);
+  color: var(--accent-ink);
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: var(--w-read);
+}
+
+.nav-note { font-size: var(--fs-util); color: var(--muted-soft); }
+
+/* ---------- блок Б: свободный ответ ---------- */
+
+.answer {
+  width: 100%;
+  max-width: var(--w-form);
+  min-height: 320px;
+  font-family: var(--ff-body);
+  font-size: var(--fs-read);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  resize: vertical;
+}
+
+.answer:focus { border-color: var(--muted-soft); }
+.answer::placeholder { color: var(--muted-soft); }
+
+.count-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: var(--w-form);
+  margin: 10px 0 24px;
+}
+
+.count { font-size: var(--fs-util); color: var(--muted-soft); }
+.count b { color: var(--ink); font-weight: 700; }
+.count.is-ok b { color: var(--accent-ink); }
+
+/* ---------- вход ---------- */
+
+.enter { padding: 48px 0 64px; }
+
+.code-in {
+  font-family: var(--ff-body);
+  font-size: var(--fs-place);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  width: 100%;
+  max-width: 320px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.code-in::placeholder { letter-spacing: 0.18em; color: var(--muted-soft); }
+
+.err {
+  color: var(--accent-ink);
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: var(--fs-dense);
+  margin: 16px 0 0;
+  max-width: var(--w-read);
+}
+
+/* ---------- ожидание ---------- */
+
+.wait {
+  padding: 80px 0;
+  max-width: var(--w-read);
+}
+
+.wait-bar {
+  height: 4px;
+  background: var(--hairline);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 24px 0 12px;
+}
+
+.wait-fill {
+  height: 100%;
+  width: 30%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: slide 1.6s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% { margin-left: -30%; }
+  100% { margin-left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-fill { animation: none; width: 100%; opacity: 0.5; }
+}
+
+/* ---------- карта участника ---------- */
+
+.map { padding: 32px 0 64px; }
+
+.skill {
+  border-top: 1px solid var(--hairline);
+  padding: 20px 0;
+}
+
+.skill:last-of-type { border-bottom: 1px solid var(--hairline); }
+
+.skill-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.skill-name { font-size: var(--fs-sub); font-weight: 700; }
+.skill-score { font-size: var(--fs-dense); color: var(--muted-soft); white-space: nowrap; }
+
+/* Зона. Заливкой, не полосой слева: полоса сбоку ничего не сообщает сверх фона. */
+.zone {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: var(--fs-dense);
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.zone-3 { background: var(--accent-tint); color: var(--accent-ink); }
+
+.skill-b {
+  margin-top: 10px;
+  font-size: var(--fs-dense);
+  color: var(--muted);
+}
+
+.skill-b b { color: var(--ink); }
+
+/* Лестница уровней блока Б: точки, залитые до текущего. */
+.lvl {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  margin: 0 8px 0 0;
+}
+
+.lvl i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--muted-soft);
+  background: var(--paper);
+}
+
+.lvl i.on { background: var(--accent); border-color: var(--accent); }
+
+.gap-line {
+  margin: 24px 0 0;
+  padding: 16px;
+  background: var(--accent-tint);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  max-width: var(--w-read);
+}
+
+.gap-line b { color: var(--accent-ink); }
+
+.judge-fail {
+  border: 1px solid var(--hairline);
+  background: var(--soft);
+  border-radius: var(--radius);
+  padding: 16px;
+  max-width: var(--w-read);
+  font-size: var(--fs-dense);
+}
+
+/* ---------- host: операторская шкала ---------- */
+
+.op { font-size: var(--fs-op); }
+
+.op-h {
+  font-size: var(--fs-op-xl);
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.op-field {
+  font-family: var(--ff-body);
+  font-size: var(--fs-op-h);
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+  max-width: 420px;
+}
+
+.op-label {
+  display: block;
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted-soft);
+  margin: 0 0 6px;
+}
+
+.op-row { margin: 0 0 16px; }
+
+.code-big {
+  font-family: var(--ff-display);
+  font-weight: 800;
+  font-size: clamp(38px, 9vw, 64px);
+  letter-spacing: 0.1em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.qr-box {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--paper);
+  display: inline-block;
+  line-height: 0;
+}
+
+.qr-box img, .qr-box canvas { display: block; width: 220px; height: 220px; }
+
+.op-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-op);
+}
+
+.op-table th {
+  text-align: left;
+  font-size: var(--fs-op-sm);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted-soft);
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+
+.op-table td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+}
+
+.op-table tr:last-child td { border-bottom: 0; }
+
+/* Распределение: полоса из долей. Трек серый, доли — тинт → акцент. */
+.dist {
+  display: flex;
+  height: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--hairline);
+  min-width: 120px;
+}
+
+.dist i { display: block; height: 100%; }
+.dist i.z1 { background: var(--hairline); }
+.dist i.z2 { background: var(--accent-line); }
+.dist i.z3 { background: var(--accent); }
+
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: var(--fs-op-sm);
+  color: var(--muted-soft);
+  margin: 12px 0 0;
+}
+
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+.stat-row {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin: 0 0 28px;
+}
+
+.stat b {
+  display: block;
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stat span {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted-soft);
+}
+
+/* ---------- сетка ---------- */
+
+.cols { display: grid; gap: 32px; }
+
+@media (min-width: 900px) {
+  .cols-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cols-side { grid-template-columns: minmax(0, 320px) minmax(0, 1fr); }
+}
+
+/* ---------- мобильный ---------- */
+
+@media (max-width: 600px) {
+  .hdr-in { padding: 12px 0; }
+  .logo { font-size: var(--fs-read); }
+  .progress { top: 51px; }
+  .situation { padding: 20px 0 32px; }
+  .opt { padding: 13px 14px; }
+  .btn { width: 100%; }
+  .nav-row .btn { width: auto; flex: 1; }
+  .op-table { font-size: var(--fs-op-sm); }
+}
+
+/* Узкая колонка на телефоне: таблица агрегата прокручивается, а не ломается. */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.hidden { display: none !important; }
