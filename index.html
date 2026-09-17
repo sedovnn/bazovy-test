@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260917-1534" />
+<link rel="stylesheet" href="css/app.css?v=20260917-1817" />
 </head>
 <body>
 
@@ -59,6 +59,15 @@
     <p>Нажали не туда — нажмите на вариант ещё раз, номер снимется. «Дальше» включается, когда расставлены все пять.</p>
     <p class="muted">Правильных ответов в привычном смысле здесь нет: важно, как вы различаете силу вариантов.</p>
   </div>
+  <!-- Только в именной сессии. Обычные прогоны анонимны, поле скрыто. -->
+  <div class="hidden" id="nameBox" style="margin:24px 0">
+    <p class="kicker" style="margin-bottom:8px"><label for="nameInput">Как вас зовут</label></p>
+    <input class="op-field" id="nameInput" maxlength="120" autocomplete="name"
+           placeholder="Имя и фамилия" aria-describedby="nameHint" />
+    <p class="util" id="nameHint" style="margin:8px 0 0">Ведущий увидит ваше имя рядом с результатом —
+      этот прогон нужен, чтобы сопоставить его с вашим прохождением i(m)perfect.</p>
+  </div>
+
   <div class="info read" style="margin:24px 0">
     <p class="kicker" style="margin-bottom:6px">Что дальше</p>
     <p style="margin:0">Шесть ситуаций, затем свободный ответ на 150–250 слов. Вернуться к предыдущей ситуации можно.</p>
@@ -144,8 +153,8 @@
 
 </main>
 
-<script src="js/data.js?v=20260917-1534"></script>
-<script src="js/api.js?v=20260917-1534"></script>
-<script src="js/test.js?v=20260917-1534"></script>
+<script src="js/data.js?v=20260917-1817"></script>
+<script src="js/api.js?v=20260917-1817"></script>
+<script src="js/test.js?v=20260917-1817"></script>
 </body>
 </html>

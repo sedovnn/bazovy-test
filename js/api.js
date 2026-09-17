@@ -31,7 +31,9 @@ var API = {
     return API_URL ? callBackend(action, payload) : MOCK.call(action, payload);
   },
 
-  createSession: function (title, stage) { return API.call('createSession', { title: title, stage: stage }); },
+  createSession: function (title, stage, identify) {
+    return API.call('createSession', { title: title, stage: stage, identify: !!identify });
+  },
   submit: function (p) { return API.call('submit', p); },
   summary: function (code) { return API.call('summary', { code: code }); },
   rejudge: function (rowId) { return API.call('rejudge', { rowId: rowId }); }
@@ -67,7 +69,8 @@ var MOCK = {
 
     if (action === 'createSession') {
       var code = MOCK.code();
-      db.sessions[code] = { code: code, title: p.title, stage: p.stage, created_at: new Date().toISOString() };
+      db.sessions[code] = { code: code, title: p.title, stage: p.stage,
+                            identify: !!p.identify, created_at: new Date().toISOString() };
       MOCK.save(db);
       return MOCK.delay(250, { ok: true, code: code });
     }
@@ -75,7 +78,8 @@ var MOCK = {
     if (action === 'checkSession') {
       var s = db.sessions[p.code];
       // в моке принимаем любой код: иначе не потыкать тест без host.html
-      return MOCK.delay(200, { ok: true, title: s ? s.title : 'Демо-сессия', stage: s ? s.stage : 'baseline' });
+      return MOCK.delay(200, { ok: true, title: s ? s.title : 'Демо-сессия',
+                               stage: s ? s.stage : 'baseline', identify: s ? !!s.identify : false });
     }
 
     if (action === 'submit') {

@@ -15,6 +15,8 @@
     order: {},          // id ситуации → массив id вариантов в порядке расстановки
     shuffled: {},       // id ситуации → порядок показа вариантов
     answer: '',
+    participant: '',
+    identify: false,
     startedAt: 0,
     /* Сколько секунд человек провёл на каждом шаге. Копится: вернулся назад —
        время добавляется, а не перезаписывается. Нужно, чтобы понять, укладывается
@@ -114,8 +116,14 @@
         .then(function (res) {
           state.code = code;
           state.stage = res.stage || 'baseline';
+          state.identify = res.identify === true;
           state.startedAt = Date.now();
           markStep('intro');
+          $('nameBox').classList.toggle('hidden', !state.identify);
+          if (state.identify) {
+            $('nameInput').value = state.participant || '';
+            $('introBtn').disabled = !$('nameInput').value.trim();
+          }
           show('screenIntro');
         })
         .catch(function (err) {
@@ -306,6 +314,7 @@
       stage: state.stage,
       orderings: state.order,
       answerText: state.answer,
+      participant: state.participant,
       durationSec: Math.round((Date.now() - state.startedAt) / 1000),
       times: state.times
     }).then(function (res) {
@@ -547,6 +556,12 @@
     initEnter();
     initBlockA();
     initBlockB();
+    $('nameInput').addEventListener('input', function () {
+      state.participant = $('nameInput').value.trim();
+      save();
+      $('introBtn').disabled = state.identify && !state.participant;
+    });
+
     $('introBtn').addEventListener('click', function () {
       markStep(TEST.blockA[0].id);
       show('screenA');
@@ -555,6 +570,8 @@
 
     if (restore()) {
       // возврат после случайного обновления страницы
+      $('nameBox').classList.toggle('hidden', !state.identify);
+      if (state.identify) $('nameInput').value = state.participant || '';
       if (state.step >= TEST.blockA.length) { show('screenB'); renderBlockB(); }
       else { show('screenA'); renderSituation(); }
       API.ready();

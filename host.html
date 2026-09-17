@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260917-1534" />
+<link rel="stylesheet" href="css/app.css?v=20260917-1817" />
 </head>
 <body class="op">
 
@@ -38,6 +38,16 @@
       <label class="op-label" for="stageInput">Этап</label>
       <select class="op-field" id="stageInput"></select>
     </div>
+    <div class="op-row">
+      <label class="op-label" for="identifyInput">Участники называют себя</label>
+      <select class="op-field" id="identifyInput">
+        <option value="">Нет — прогон анонимный</option>
+        <option value="да">Да — просить имя на входе</option>
+      </select>
+      <p class="util" style="margin:6px 0 0">Имя попадает только в таблицу, на этом экране
+        его не будет. Нужно, когда результат надо сопоставить с чем-то ещё.</p>
+    </div>
+
     <button class="btn btn-primary" id="newBtn" type="submit">Создать</button>
   </form>
 
@@ -119,9 +129,9 @@
 
 </main>
 
-<script src="js/data.js?v=20260917-1534"></script>
-<script src="js/qr.js?v=20260917-1534"></script>
-<script src="js/api.js?v=20260917-1534"></script>
-<script src="js/host.js?v=20260917-1534"></script>
+<script src="js/data.js?v=20260917-1817"></script>
+<script src="js/qr.js?v=20260917-1817"></script>
+<script src="js/api.js?v=20260917-1817"></script>
+<script src="js/host.js?v=20260917-1817"></script>
 </body>
 </html>

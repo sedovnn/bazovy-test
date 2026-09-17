@@ -137,6 +137,12 @@ check('код из шести символов', /^[A-Z0-9]{6}$/.test(created.co
 check('лист sessions заведён', !!sheets['sessions']);
 const code = created.code;
 
+console.log('\n1a. Именная сессия');
+const именная = post({ action: 'createSession', title: 'Своя команда', stage: 'baseline', identify: true });
+check('создана именной', именная.identify === true);
+check('анонимная осталась анонимной', post({ action: 'checkSession', code }).identify === false);
+check('именная отдаёт признак', post({ action: 'checkSession', code: именная.code }).identify === true);
+
 console.log('\n2. Проверка кода');
 check('существующий код принят', post({ action: 'checkSession', code }).ok === true);
 check('несуществующий отклонён', post({ action: 'checkSession', code: 'ZZZZZZ' }).error === 'no_session');
@@ -154,11 +160,29 @@ check('уровень ГА-1 доехал', r1.map.skills[1].level === 2);
 check('флаг ПР-1 сохранён', r1.map.skills[2].flag === true);
 check('строка «различаю, но не делаю» есть', r1.map.gaps.indexOf('Генерация альтернатив') >= 0, JSON.stringify(r1.map.gaps));
 check('строка записана в responses', sheets['responses']._rows.length === 2);
+const базоваяШирина = sheets['responses']._rows[0].length;
 {
   const h = sheets['responses']._rows[0], r = sheets['responses']._rows[1];
   check('время блока Б записано', r[h.indexOf('blockB_sec')] === 305);
   check('время по ситуациям записано', CONFIG.situations.every(sid => r[h.indexOf(sid + '_sec')] > 0));
   check('колонки времени есть в шапке', h.includes('intro_sec') && h.includes('blockB_sec'));
+}
+
+console.log('\n3a. Имя пишется только в именной сессии');
+fetchMode = 'ok';
+post({ action: 'submit', code: именная.code, stage: 'baseline', orderings,
+       answerText: ответ, durationSec: 600, participant: 'Катя Иванова' });
+post({ action: 'submit', code, stage: 'baseline', orderings,
+       answerText: ответ, durationSec: 600, participant: 'Пётр Сидоров' });
+{
+  const h = sheets['responses']._rows[0];
+  const строки = sheets['responses']._rows.slice(1);
+  const вИменной = строки.filter(r => r[h.indexOf('session_code')] === именная.code);
+  const вАнонимной = строки.filter(r => r[h.indexOf('session_code')] === code);
+  check('в именной имя сохранено',
+        вИменной.some(r => r[h.indexOf('participant')] === 'Катя Иванова'));
+  check('в анонимной имя отброшено, хотя браузер его прислал',
+        вАнонимной.every(r => !r[h.indexOf('participant')]));
 }
 
 console.log('\n4. Отправка — судья падает (HTTP 500)');
@@ -168,8 +192,8 @@ check('отправка не упала', r2.ok === true);
 check('judge_status = error', r2.judge_status === 'error');
 check('карта блока А всё равно пришла', r2.map.skills[0].score === 8);
 check('уровней блока Б нет', r2.map.skills[1].level === null);
-check('строка всё равно сохранена', sheets['responses']._rows.length === 3);
-const битаяСтрока = sheets['responses']._rows[2];
+check('строка всё равно сохранена', sheets['responses']._rows.length === 5);
+const битаяСтрока = sheets['responses']._rows[4];
 const шапка = sheets['responses']._rows[0];
 check('текст записки сохранён', битаяСтрока[шапка.indexOf('answer_text')].length > 0);
 check('judge_error записан', String(битаяСтрока[шапка.indexOf('judge_error')]).indexOf('API 500') >= 0);
@@ -186,22 +210,24 @@ const битыйId = битаяСтрока[шапка.indexOf('row_id')];
 const r4 = post({ action: 'rejudge', rowId: битыйId });
 check('rejudge отработал', r4.ok === true && r4.judge_status === 'ok', r4.error);
 check('уровни появились в карте', r4.map.skills[1].level === 2);
-const послеПовтора = sheets['responses']._rows[2];
+const послеПовтора = sheets['responses']._rows[4];
 check('judge_status в строке переписан', послеПовтора[шапка.indexOf('judge_status')] === 'ok');
 check('расстановка не тронута', послеПовтора[шапка.indexOf('ak1_score')] === 4);
 
 console.log('\n7. Агрегат');
 const s = post({ action: 'summary', code });
-check('посчитаны все три отправки', s.summary.count === 3, 'count=' + s.summary.count);
-check('зоны разложены', s.summary.skills[0].zones[2] === 3, JSON.stringify(s.summary.skills[0].zones));
-check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 3, JSON.stringify(s.summary.skills[0].buckets));
-check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 3, JSON.stringify(s.summary.skills[4].buckets));
+check('посчитаны все отправки анонимной сессии', s.summary.count === 4, 'count=' + s.summary.count);
+check('зоны разложены', s.summary.skills[0].zones[2] === 4, JSON.stringify(s.summary.skills[0].zones));
+check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 4, JSON.stringify(s.summary.skills[0].buckets));
+check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 4, JSON.stringify(s.summary.skills[4].buckets));
 check('сумма по вёдрам = числу прошедших',
       s.summary.skills.every(sk => sk.buckets.reduce((a,b)=>a+b,0) === s.summary.count));
 check('средняя по шкале посчитана', typeof s.summary.skills[0].mean === 'number');
 check('времени в сводке нет — оно только в таблице', s.summary.time === undefined);
-check('уровни разложены', s.summary.skills[1].levels[1] === 3, JSON.stringify(s.summary.skills[1].levels));
-check('имён и текстов в агрегате нет', JSON.stringify(s.summary).indexOf('сервисом ведения') < 0);
+check('уровни разложены', s.summary.skills[1].levels[1] === 4, JSON.stringify(s.summary.skills[1].levels));
+check('имён и текстов в агрегате нет',
+      JSON.stringify(s.summary).indexOf('сервисом ведения') < 0 &&
+      JSON.stringify(post({ action: 'summary', code: именная.code }).summary).indexOf('Катя') < 0);
 
 console.log('\n8. Добавление колонки не ломает прежние строки');
 {

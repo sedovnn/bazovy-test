@@ -83,7 +83,7 @@ function sheet(name) {
 function setupSheets(ss, isNew) {
   if (!ss.getSheetByName(SHEET_SESSIONS)) {
     var s = ss.insertSheet(SHEET_SESSIONS);
-    s.appendRow(['code', 'title', 'stage', 'created_at']);
+    s.appendRow(['code', 'title', 'stage', 'identify', 'created_at']);
     s.setFrozenRows(1);
   }
   if (!ss.getSheetByName(SHEET_RESPONSES)) {
@@ -99,7 +99,7 @@ function setupSheets(ss, isNew) {
 /* Заголовок листа responses собирается из конфига — состав ситуаций и навыков
    задаёт спека, а не этот файл. */
 function responseHeader() {
-  var head = ['row_id', 'session_code', 'stage', 'submitted_at', 'duration_sec'];
+  var head = ['row_id', 'session_code', 'stage', 'participant', 'submitted_at', 'duration_sec'];
 
   CONFIG.situations.forEach(function (sid) {
     head.push(sid + '_order', sid + '_score');
@@ -146,6 +146,10 @@ function makeCode() {
 function createSession(p) {
   var title = String(p.title || '').slice(0, 200);
   var stage = String(p.stage || 'baseline');
+  // Именная сессия — решение ведущего на каждый прогон, а не свойство продукта.
+  // По умолчанию тест анонимный; имена нужны там, где результат надо с чем-то
+  // сопоставить, например с живым прогоном в i(m)perfect.
+  var identify = p.identify === true || p.identify === 'да';
   var sh = sheet(SHEET_SESSIONS);
 
   var existing = {};
@@ -155,14 +159,26 @@ function createSession(p) {
   var guard = 0;
   while (existing[code] && guard++ < 50) code = makeCode();
 
-  withLock(function () { sh.appendRow([code, title, stage, new Date().toISOString()]); });
-  return { ok: true, code: code, title: title, stage: stage };
+  withLock(function () {
+    appendByHeader(sh, { code: code, title: title, stage: stage,
+                         identify: identify ? 'да' : '', created_at: new Date().toISOString() });
+  });
+  return { ok: true, code: code, title: title, stage: stage, identify: identify };
 }
 
 function findSession(code) {
-  var rows = sheet(SHEET_SESSIONS).getDataRange().getValues().slice(1);
-  for (var i = 0; i < rows.length; i++) {
-    if (rows[i][0] === code) return { code: rows[i][0], title: rows[i][1], stage: rows[i][2] };
+  var sh = sheet(SHEET_SESSIONS);
+  var values = sh.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var iCode = head.indexOf('code');
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][iCode] !== code) continue;
+    function col(name) {
+      var c = head.indexOf(name);
+      return c >= 0 ? values[i][c] : '';
+    }
+    return { code: code, title: col('title'), stage: col('stage'),
+             identify: String(col('identify')) === 'да' };
   }
   return null;
 }
@@ -171,13 +187,17 @@ function checkSession(p) {
   var code = String(p.code || '').toUpperCase();
   var s = findSession(code);
   if (!s) return { ok: false, error: 'no_session' };
-  return { ok: true, title: s.title, stage: s.stage };
+  return { ok: true, title: s.title, stage: s.stage, identify: s.identify };
 }
 
 function submit(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
+
+  // Имя принимаем только у именной сессии: иначе анонимность зависела бы
+  // от того, что прислал браузер.
+  var participant = session.identify ? String(p.participant || '').trim().slice(0, 120) : '';
 
   var orderings = p.orderings || {};
   var answer = String(p.answerText || '');
@@ -199,6 +219,7 @@ function submit(p) {
     writeResponse({
       rowId: rowId, code: code, stage: stage,
       durationSec: Number(p.durationSec || 0), times: p.times || {},
+      participant: participant,
       orderings: orderings, map: map, answer: answer, verdict: verdict
     });
   });
@@ -221,6 +242,7 @@ function writeResponse(d) {
   v.row_id = d.rowId;
   v.session_code = d.code;
   v.stage = d.stage;
+  v.participant = d.participant || '';
   v.submitted_at = new Date().toISOString();
   v.duration_sec = d.durationSec;
 

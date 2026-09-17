@@ -135,6 +135,7 @@
       e.preventDefault();
       var title = $('titleInput').value.trim();
       var stage = $('stageInput').value;
+      var identify = $('identifyInput').value === 'да';
       if (!title) { $('titleInput').focus(); return; }
 
       $('newBtn').disabled = true;
@@ -142,7 +143,7 @@
       $('newErr').classList.add('hidden');
 
       API.ready()
-        .then(function () { return API.createSession(title, stage); })
+        .then(function () { return API.createSession(title, stage, identify); })
         .then(function (res) {
           showLive({ code: res.code, title: title, stage: stage });
         })
