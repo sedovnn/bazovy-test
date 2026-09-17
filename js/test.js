@@ -296,29 +296,34 @@
   }
 
   /* ---------- карта ----------
-     Наверху — две фразы и одна картина: где сильны, где нет. Числа, уровни
-     и разбор гейтов — под «подробнее»: это кухня оценки, а не результат. */
+     Одна общая шкала на все пять навыков. Ни чисел, ни названий ступеней:
+     это результат, а не кухня оценки. Механика — под «подробнее». */
 
-  var BANDS = ['не видит', 'видит, путает', 'выбирает'];
+  /* Сводит навык к одному положению 0…1 на общей шкале.
 
-  /* ⚠ Уровень записки L1–L5 сведён к трём ступеням расстановки, чтобы отставание
-     можно было показать на одной картинке. Спека такого сведения не задаёт —
-     это моё огрубление, и менять его методологу здесь, одним местом. */
-  function levelBand(level) {
-    if (!level) return null;
-    if (level <= 2) return 0;
-    if (level === 3) return 1;
-    return 2;
+     ⚠ ЭТО ОГРУБЛЕНИЕ, И ОНО МОЁ. Спека даёт по навыку разные величины: у
+     Анализа контекста расстановка по двум ситуациям (0–8), у остальных по одной
+     (0–4), и у четырёх сверх того уровень записки L1–L5. Общей шкалы спека не
+     задаёт. Здесь обе части нормируются в 0…1 и усредняются с равным весом, у
+     Анализа контекста часть одна. Тест пятнадцатиминутный, картина заведомо
+     приблизительная — вес и способ сведения правятся здесь, одним местом. */
+  function combined(sk) {
+    var parts = [sk.score / sk.max];
+    if (sk.level) parts.push((sk.level - 1) / 4);
+    var sum = 0;
+    for (var i = 0; i < parts.length; i++) sum += parts[i];
+    return sum / parts.length;
+  }
+
+  /* Уровень записки на общей шкале ниже расстановки — значит, различает лучше,
+     чем делает. Приписка под полосой. */
+  function lagging(sk) {
+    return !!sk.level && ((sk.level - 1) / 4) < (sk.score / sk.max);
   }
 
   function renderMap(res) {
     var rows = res.map.skills.map(function (sk) {
-      return {
-        name: sk.name,
-        band: sk.zoneIndex,
-        lag: sk.level ? (levelBand(sk.level) < sk.zoneIndex) : false,
-        raw: sk
-      };
+      return { name: sk.name, value: combined(sk), lag: lagging(sk), raw: sk };
     });
 
     $('mapLead').textContent = leadText(rows);
@@ -326,6 +331,13 @@
     var box = $('mapProfile');
     box.innerHTML = '';
     rows.forEach(function (r) { box.appendChild(profileRow(r)); });
+
+    var note = document.createElement('p');
+    note.className = 'scale-note';
+    note.textContent = 'Шкала одна на все навыки: чем длиннее полоса, тем увереннее навык ' +
+      'проявился. Тест короткий, картина приблизительная — она показывает, где перепад, ' +
+      'а не точное значение.';
+    box.appendChild(note);
 
     // «различаю, но не делаю» — вывод поперёк строк, поэтому отдельным блоком
     var gaps = res.map.gaps || [];
@@ -350,17 +362,21 @@
     renderDetails(res, rows);
   }
 
-  /* Две фразы вместо шапки-объяснения: их читают, объяснение шкалы — нет. */
+  /* Две фразы вместо объяснения шкалы: их читают, объяснение — нет.
+     Края берутся по той же общей шкале, что и полосы. */
   function leadText(rows) {
-    var strong = rows.filter(function (r) { return r.band === 2; }).map(nameOf);
-    var weak = rows.filter(function (r) { return r.band === 0; }).map(nameOf);
-    var parts = [];
+    var sorted = rows.slice().sort(function (a, b) { return b.value - a.value; });
+    var top = sorted[0], bottom = sorted[sorted.length - 1];
 
-    if (strong.length) parts.push('Сильнее всего — ' + list(strong) + '.');
-    if (weak.length) parts.push((strong.length ? 'Слабее' : 'Слабее всего') + ' — ' + list(weak) + '.');
-    if (!parts.length) parts.push('Выраженных краёв нет: все пять навыков в середине.');
+    if (top.value - bottom.value < 0.15) {
+      return 'Профиль ровный: все пять навыков проявились примерно одинаково.';
+    }
 
-    return parts.join(' ');
+    var high = sorted.filter(function (r) { return r.value >= top.value - 0.01; });
+    var low = sorted.filter(function (r) { return r.value <= bottom.value + 0.01; });
+
+    return 'Выше всего — ' + list(high.map(nameOf)) + '. ' +
+           'Ниже всего — ' + list(low.map(nameOf)) + '.';
   }
 
   function nameOf(r) { return r.name.toLowerCase(); }
@@ -382,39 +398,34 @@
     var track = document.createElement('span');
     track.className = 'ptrack';
     track.setAttribute('role', 'img');
-    track.setAttribute('aria-label', r.name + ': ' + BANDS[r.band]);
-    for (var i = 0; i < 3; i++) {
-      var seg = document.createElement('i');
-      seg.className = i < r.band ? 'is-passed' : (i === r.band ? 'is-here' : '');
-      track.appendChild(seg);
-    }
+    track.setAttribute('aria-label', r.name + ': ' + Math.round(r.value * 100) + ' из 100 по общей шкале');
+    var fill = document.createElement('i');
+    // минимум видимой полосы: нулевая длина читается как «не посчитали»
+    fill.style.width = Math.max(3, Math.round(r.value * 100)) + '%';
+    track.appendChild(fill);
     row.appendChild(track);
 
-    var word = document.createElement('span');
-    word.className = 'prow-word' + (r.band === 0 ? ' is-low' : '');
-    word.textContent = BANDS[r.band];
-    row.appendChild(word);
-
-    // приписка только там, где записка отстала: пустая строка читалась бы как поломка
     if (r.lag) {
       var lag = document.createElement('span');
       lag.className = 'prow-lag';
-      lag.textContent = 'в собственном тексте — ниже';
+      lag.textContent = 'различаете лучше, чем сделали в своём тексте';
       row.appendChild(lag);
     }
 
     return row;
   }
 
-  /* Подробности: всё, что раньше стояло наверху. Свёрнуто по умолчанию. */
+  /* Подробности: всё, из чего сложилась полоса. Свёрнуто по умолчанию. */
   function renderDetails(res, rows) {
     var box = $('mapDetails');
     box.innerHTML = '';
 
     var intro = document.createElement('p');
     intro.className = 'util read';
-    intro.textContent = 'Расстановка — как вы различаете силу готовых ответов. ' +
-      'Записка — что из этого вы сделали сами, когда готовых ответов не было.';
+    intro.textContent = 'Полоса выше сводит две разные величины в одну шкалу. Расстановка — ' +
+      'как вы различаете силу готовых ответов; зоны и шкалы для неё заданы методикой. ' +
+      'Записка — что из этого вы сделали сами, уровнем L1–L5. У анализа контекста записки нет: ' +
+      'он оценивается только расстановкой.';
     box.appendChild(intro);
 
     rows.forEach(function (r) {
