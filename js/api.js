@@ -5,7 +5,7 @@
    судья имитируется. В моковом режиме дополнительно подгружается js/scoring.js;
    в боевом он не нужен и ключ в браузер не попадает. */
 
-var API_URL = '';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzXshbrdDdHR4T2nzSbAx6TlUcNkmZVnHYhGXZWqMjr-9_-UbT5_p3WNaf_1KF3JwPw/exec';
 
 /* Apps Script и CORS: шлём text/plain, иначе браузер делает preflight OPTIONS,
    которого веб-приложение Apps Script не отдаёт. Тело — всё равно JSON. */

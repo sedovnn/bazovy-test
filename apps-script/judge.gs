@@ -5,13 +5,20 @@
    температура 0, max_tokens 1500, при неразборчивом JSON — один повтор
    с добавлением «Ответь только JSON».
 
+   ⚠ РАСХОЖДЕНИЕ СО СПЕКОЙ, ВЫНУЖДЕННОЕ. «Температуры 0» на этой модели больше
+   нет: Sonnet 5 отвечает «400 `temperature` is deprecated for this model» —
+   sampling-параметры из модели убраны. Параметр снят, замены ему не придумано.
+   Заодно выключено рассуждение: иначе оно ело бы те же 1500 токенов, что
+   отведены под ответ, и растягивало ожидание за обещанные участнику 10–20 с.
+   Если калибровка с Катей покажет, что судья мажет, — первый рычаг здесь:
+   включить рассуждение и поднять max_tokens.
+
    Ключ читается из свойств скрипта и никогда не покидает бэкенд. */
 
 var ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 var ANTHROPIC_VERSION = '2023-06-01';
 var DEFAULT_MODEL = 'claude-sonnet-5';   // как у судьи Искры
 var MAX_TOKENS = 1500;
-var TEMPERATURE = 0;
 
 function judgeModel() {
   return PROP.getProperty('MODEL') || DEFAULT_MODEL;
@@ -47,7 +54,8 @@ function callAnthropic(key, model, system, user) {
   var payload = {
     model: model,
     max_tokens: MAX_TOKENS,
-    temperature: TEMPERATURE,
+    // см. расхождение со спекой в шапке файла
+    thinking: { type: 'disabled' },
     // Промпт статичный и большой (около 60 тысяч знаков) — кэшируем его.
     // Содержание от этого не меняется, а каждый следующий участник в течение
     // жизни кэша считается заметно дешевле.

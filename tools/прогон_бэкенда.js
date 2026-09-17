@@ -69,8 +69,11 @@ global.UrlFetchApp = {
     if (!Array.isArray(body.system) || !body.system[0].cache_control) {
       throw new Error('system должен быть блоком с cache_control');
     }
-    if (body.temperature !== 0 || body.max_tokens !== 1500) {
-      throw new Error('температура или max_tokens не по спеке');
+    if ('temperature' in body) {
+      throw new Error('temperature эта модель не принимает — 400');
+    }
+    if (body.max_tokens !== 1500 || !body.thinking || body.thinking.type !== 'disabled') {
+      throw new Error('max_tokens или режим рассуждения не те');
     }
     if (!/^<ответ>\n/.test(body.messages[0].content)) {
       throw new Error('ответ участника не обёрнут в <ответ>');
