@@ -362,21 +362,9 @@ function summary(p) {
   });
 
   var count = 0;
-  var durations = [];
-  var stepSums = {}, stepCounts = {};
-  var durCol = head.indexOf('duration_sec');
-
   for (var i = 1; i < values.length; i++) {
     if (values[i][codeCol] !== code) continue;
     count++;
-
-    var dur = Number(values[i][durCol] || 0);
-    if (dur > 0) durations.push(dur);
-    ['intro'].concat(CONFIG.situations).concat(['blockB']).forEach(function (key) {
-      var c = head.indexOf(key + '_sec');
-      var v = c >= 0 ? Number(values[i][c] || 0) : 0;
-      if (v > 0) { stepSums[key] = (stepSums[key] || 0) + v; stepCounts[key] = (stepCounts[key] || 0) + 1; }
-    });
     CONFIG.skills.forEach(function (sk, k) {
       var max = sk.situations.length * 4;
       var score = Number(values[i][head.indexOf(sk.id + '_score')] || 0);
@@ -396,32 +384,5 @@ function summary(p) {
   skills.forEach(function (sk) { sk.mean = count ? sk.sum / count : 0; delete sk.sum; });
 
   var session = findSession(code);
-  return { ok: true, session: session,
-           summary: { count: count, skills: skills, time: timeStats(durations, stepSums, stepCounts) } };
-}
-
-/* Сколько реально уходит на прохождение. Медиана, а не среднее: один человек,
-   отошедший за кофе, среднее перекосит, медиану — нет. */
-function timeStats(durations, stepSums, stepCounts) {
-  var sorted = durations.slice().sort(function (a, b) { return a - b; });
-  var steps = {};
-  for (var key in stepSums) {
-    if (Object.prototype.hasOwnProperty.call(stepSums, key)) {
-      steps[key] = Math.round(stepSums[key] / stepCounts[key]);
-    }
-  }
-  return {
-    n: sorted.length,
-    median: median(sorted),
-    min: sorted.length ? sorted[0] : 0,
-    max: sorted.length ? sorted[sorted.length - 1] : 0,
-    over15: sorted.filter(function (v) { return v > 15 * 60; }).length,
-    steps: steps
-  };
-}
-
-function median(sorted) {
-  if (!sorted.length) return 0;
-  var mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+  return { ok: true, session: session, summary: { count: count, skills: skills } };
 }

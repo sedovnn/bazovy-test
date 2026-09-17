@@ -199,6 +199,7 @@ check('у слабого навыка группа внизу', s.summary.skills
 check('сумма по вёдрам = числу прошедших',
       s.summary.skills.every(sk => sk.buckets.reduce((a,b)=>a+b,0) === s.summary.count));
 check('средняя по шкале посчитана', typeof s.summary.skills[0].mean === 'number');
+check('времени в сводке нет — оно только в таблице', s.summary.time === undefined);
 check('уровни разложены', s.summary.skills[1].levels[1] === 3, JSON.stringify(s.summary.skills[1].levels));
 check('имён и текстов в агрегате нет', JSON.stringify(s.summary).indexOf('сервисом ведения') < 0);
 
