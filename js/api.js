@@ -7,21 +7,37 @@
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbzXshbrdDdHR4T2nzSbAx6TlUcNkmZVnHYhGXZWqMjr-9_-UbT5_p3WNaf_1KF3JwPw/exec';
 
+/* Сколько ждём ответа. Отправке нужно больше: судья честно думает 15–20 секунд.
+   Без таймаута оборванная сеть оставляет человека на экране ожидания навсегда —
+   поймали ровно это. */
+var TIMEOUTS = { submit: 90000, rejudge: 90000, _default: 30000 };
+
 /* Apps Script и CORS: шлём text/plain, иначе браузер делает preflight OPTIONS,
    которого веб-приложение Apps Script не отдаёт. Тело — всё равно JSON. */
 function callBackend(action, payload) {
   var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+  var ms = TIMEOUTS[action] || TIMEOUTS._default;
+
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+
   return fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: body
+    body: body,
+    signal: ctrl ? ctrl.signal : undefined
   }).then(function (r) {
     if (!r.ok) throw new Error('Сервер ответил ' + r.status);
     return r.json();
   }).then(function (data) {
     if (data && data.ok === false) throw new Error(data.error || 'Ошибка сервера');
     return data;
-  });
+  }).catch(function (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error('сервер не ответил за ' + Math.round(ms / 1000) + ' с');
+    }
+    throw err;
+  }).finally(function () { clearTimeout(timer); });
 }
 
 var API = {

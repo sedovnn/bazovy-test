@@ -185,6 +185,23 @@ post({ action: 'submit', code, stage: 'baseline', orderings,
         вАнонимной.every(r => !r[h.indexOf('participant')]));
 }
 
+console.log('\n3b. Повторная отправка после обрыва');
+fetchMode = 'ok'; fetchCalls = 0;
+const ключ = 'з-проверка-1';
+const было = sheets['responses']._rows.length;
+const п1 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ,
+                  durationSec: 600, submissionId: ключ });
+const вызововПосле1 = fetchCalls;
+const п2 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ,
+                  durationSec: 600, submissionId: ключ });
+check('первая отправка прошла', п1.ok === true && !п1.repeat);
+check('повтор узнан', п2.repeat === true);
+check('вторая строка не создана', sheets['responses']._rows.length === было + 1);
+check('судья повторно не вызван', fetchCalls === вызововПосле1, 'вызовов ' + fetchCalls);
+check('повтор вернул ту же карту',
+      JSON.stringify(п2.map.skills.map(s => s.score)) === JSON.stringify(п1.map.skills.map(s => s.score)));
+check('повтор вернул тот же уровень', п2.map.skills[1].level === п1.map.skills[1].level);
+
 console.log('\n4. Отправка — судья падает (HTTP 500)');
 fetchMode = 'http500'; fetchCalls = 0;
 const r2 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 700 });
@@ -192,8 +209,8 @@ check('отправка не упала', r2.ok === true);
 check('judge_status = error', r2.judge_status === 'error');
 check('карта блока А всё равно пришла', r2.map.skills[0].score === 8);
 check('уровней блока Б нет', r2.map.skills[1].level === null);
-check('строка всё равно сохранена', sheets['responses']._rows.length === 5);
-const битаяСтрока = sheets['responses']._rows[4];
+check('строка всё равно сохранена', sheets['responses']._rows.length === 6);
+const битаяСтрока = sheets['responses']._rows[5];
 const шапка = sheets['responses']._rows[0];
 check('текст записки сохранён', битаяСтрока[шапка.indexOf('answer_text')].length > 0);
 check('judge_error записан', String(битаяСтрока[шапка.indexOf('judge_error')]).indexOf('API 500') >= 0);
@@ -210,21 +227,21 @@ const битыйId = битаяСтрока[шапка.indexOf('row_id')];
 const r4 = post({ action: 'rejudge', rowId: битыйId });
 check('rejudge отработал', r4.ok === true && r4.judge_status === 'ok', r4.error);
 check('уровни появились в карте', r4.map.skills[1].level === 2);
-const послеПовтора = sheets['responses']._rows[4];
+const послеПовтора = sheets['responses']._rows[5];
 check('judge_status в строке переписан', послеПовтора[шапка.indexOf('judge_status')] === 'ok');
 check('расстановка не тронута', послеПовтора[шапка.indexOf('ak1_score')] === 4);
 
 console.log('\n7. Агрегат');
 const s = post({ action: 'summary', code });
-check('посчитаны все отправки анонимной сессии', s.summary.count === 4, 'count=' + s.summary.count);
-check('зоны разложены', s.summary.skills[0].zones[2] === 4, JSON.stringify(s.summary.skills[0].zones));
-check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 4, JSON.stringify(s.summary.skills[0].buckets));
-check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 4, JSON.stringify(s.summary.skills[4].buckets));
+check('посчитаны все отправки анонимной сессии', s.summary.count === 5, 'count=' + s.summary.count);
+check('зоны разложены', s.summary.skills[0].zones[2] === 5, JSON.stringify(s.summary.skills[0].zones));
+check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 5, JSON.stringify(s.summary.skills[0].buckets));
+check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 5, JSON.stringify(s.summary.skills[4].buckets));
 check('сумма по вёдрам = числу прошедших',
       s.summary.skills.every(sk => sk.buckets.reduce((a,b)=>a+b,0) === s.summary.count));
 check('средняя по шкале посчитана', typeof s.summary.skills[0].mean === 'number');
 check('времени в сводке нет — оно только в таблице', s.summary.time === undefined);
-check('уровни разложены', s.summary.skills[1].levels[1] === 4, JSON.stringify(s.summary.skills[1].levels));
+check('уровни разложены', s.summary.skills[1].levels[1] === 5, JSON.stringify(s.summary.skills[1].levels));
 check('имён и текстов в агрегате нет',
       JSON.stringify(s.summary).indexOf('сервисом ведения') < 0 &&
       JSON.stringify(post({ action: 'summary', code: именная.code }).summary).indexOf('Катя') < 0);

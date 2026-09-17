@@ -99,7 +99,8 @@ function setupSheets(ss, isNew) {
 /* Заголовок листа responses собирается из конфига — состав ситуаций и навыков
    задаёт спека, а не этот файл. */
 function responseHeader() {
-  var head = ['row_id', 'session_code', 'stage', 'participant', 'submitted_at', 'duration_sec'];
+  var head = ['row_id', 'submission_id', 'session_code', 'stage', 'participant',
+              'submitted_at', 'duration_sec'];
 
   CONFIG.situations.forEach(function (sid) {
     head.push(sid + '_order', sid + '_score');
@@ -199,6 +200,14 @@ function submit(p) {
   // от того, что прислал браузер.
   var participant = session.identify ? String(p.participant || '').trim().slice(0, 120) : '';
 
+  /* Повторная отправка после обрыва не должна ни плодить строки, ни оплачивать
+     судью заново. Ключ приходит от фронта и живёт одну попытку прохождения. */
+  var submissionId = String(p.submissionId || '').slice(0, 64);
+  if (submissionId) {
+    var already = findSubmission(submissionId);
+    if (already) return already;
+  }
+
   var orderings = p.orderings || {};
   var answer = String(p.answerText || '');
   var stage = String(p.stage || session.stage || 'baseline');
@@ -218,6 +227,7 @@ function submit(p) {
   withLock(function () {
     writeResponse({
       rowId: rowId, code: code, stage: stage,
+      submissionId: submissionId,
       durationSec: Number(p.durationSec || 0), times: p.times || {},
       participant: participant,
       orderings: orderings, map: map, answer: answer, verdict: verdict
@@ -240,6 +250,7 @@ function writeResponse(d) {
   var v = {};
 
   v.row_id = d.rowId;
+  v.submission_id = d.submissionId || '';
   v.session_code = d.code;
   v.stage = d.stage;
   v.participant = d.participant || '';
@@ -307,6 +318,55 @@ function appendByHeader(sh, values) {
 function countWords(text) {
   var t = String(text || '').trim();
   return t ? t.split(/\s+/).length : 0;
+}
+
+/* Находит прежнюю отправку по ключу и пересобирает её ответ — тот же, что
+   человек получил бы в первый раз. Судья повторно не вызывается. */
+function findSubmission(submissionId) {
+  var sh = sheet(SHEET_RESPONSES);
+  var values = sh.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var iKey = head.indexOf('submission_id');
+  if (iKey < 0) return null;
+
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][iKey]) !== submissionId) continue;
+
+    var row = values[i];
+    function col(name) {
+      var c = head.indexOf(name);
+      return c >= 0 ? row[c] : '';
+    }
+
+    var orderings = {};
+    CONFIG.situations.forEach(function (sid) {
+      var raw = String(col(sid + '_order') || '');
+      if (raw.length === 5) orderings[sid] = raw.split('');
+    });
+
+    var status = String(col('judge_status') || '');
+    var judge = null;
+    if (status === 'ok') {
+      judge = { feedback: String(col('feedback') || '') };
+      CONFIG.abilities.forEach(function (a) {
+        var lvl = Number(col(a.id + '_level') || 0);
+        if (lvl >= 1 && lvl <= 5) {
+          judge[a.id] = { level: lvl, flag: String(col(a.id + '_flag')) === 'да',
+                          quote: String(col(a.id + '_quote') || ''),
+                          why: String(col(a.id + '_why') || '') };
+        }
+      });
+    }
+
+    return {
+      ok: true, repeat: true, rowId: String(col('row_id') || ''),
+      map: buildMap(CONFIG.skills, orderings, judge),
+      judge: judge, judge_status: status || 'error',
+      judge_error: String(col('judge_error') || ''),
+      feedback: judge ? (judge.feedback || '') : ''
+    };
+  }
+  return null;
 }
 
 /* Повторная оценка сохранённой записки: читаем текст из строки, зовём судью,
