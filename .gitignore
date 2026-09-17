@@ -30,3 +30,6 @@ apps-script/judge_prompt.gs
 .claude/
 __pycache__/
 .clasp.json
+
+# файл на вычитку пересобирается скриптом
+ТЕКСТЫ_НА_ВЫЧИТКУ.md
