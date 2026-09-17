@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260917-1509" />
+<link rel="stylesheet" href="css/app.css?v=20260917-1529" />
 </head>
 <body class="op">
 
@@ -70,6 +70,7 @@
       <div class="stat-row">
         <span class="stat"><b id="statCount">0</b><span>прошли тест</span></span>
         <span class="stat"><b id="statStage">—</b><span>этап</span></span>
+        <span class="stat"><b id="statTime">—</b><span>медиана прохождения</span></span>
       </div>
 
       <!-- Одна картина на все пять навыков и по той же шкале, что видит участник.
@@ -86,9 +87,14 @@
         перепад, а не точное значение.</p>
 
       <details class="details">
-        <summary>Подробнее: оценка теста и свободного ответа</summary>
+        <summary>Подробнее: время и оценки по частям</summary>
         <div class="details-body">
-          <p class="kicker">Тест · распределение</p>
+          <p class="kicker">Сколько уходит времени</p>
+          <div class="scroll-x">
+            <table class="op-table" id="timeTable"><tbody></tbody></table>
+          </div>
+
+          <p class="kicker" style="margin-top:28px">Тест · распределение по зонам</p>
           <div class="scroll-x">
             <table class="op-table" id="zoneTable">
               <thead><tr><th>Навык</th><th>не видит</th><th>видит, путает</th><th>выбирает</th></tr></thead>
@@ -119,9 +125,9 @@
 
 </main>
 
-<script src="js/data.js?v=20260917-1509"></script>
-<script src="js/qr.js?v=20260917-1509"></script>
-<script src="js/api.js?v=20260917-1509"></script>
-<script src="js/host.js?v=20260917-1509"></script>
+<script src="js/data.js?v=20260917-1529"></script>
+<script src="js/qr.js?v=20260917-1529"></script>
+<script src="js/api.js?v=20260917-1529"></script>
+<script src="js/host.js?v=20260917-1529"></script>
 </body>
 </html>

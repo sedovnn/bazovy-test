@@ -15,7 +15,12 @@
     order: {},          // id ситуации → массив id вариантов в порядке расстановки
     shuffled: {},       // id ситуации → порядок показа вариантов
     answer: '',
-    startedAt: 0
+    startedAt: 0,
+    /* Сколько секунд человек провёл на каждом шаге. Копится: вернулся назад —
+       время добавляется, а не перезаписывается. Нужно, чтобы понять, укладывается
+       ли тест в обещанные пятнадцать минут и где именно уходит время. */
+    times: {},
+    stepAt: 0
   };
 
   /* ---------- утилиты ---------- */
@@ -27,6 +32,18 @@
       var t = a[i]; a[i] = a[j]; a[j] = t;
     }
     return a;
+  }
+
+  /* Закрывает предыдущий шаг и открывает новый. */
+  function markStep(id) {
+    var now = Date.now();
+    if (state.stepAt && state.openStep) {
+      state.times[state.openStep] = (state.times[state.openStep] || 0) +
+                                    Math.round((now - state.stepAt) / 1000);
+    }
+    state.openStep = id;
+    state.stepAt = now;
+    save();
   }
 
   function countWords(text) {
@@ -98,7 +115,7 @@
           state.code = code;
           state.stage = res.stage || 'baseline';
           state.startedAt = Date.now();
-          save();
+          markStep('intro');
           show('screenIntro');
         })
         .catch(function (err) {
@@ -205,14 +222,20 @@
     $('aNext').addEventListener('click', function () {
       state.step++;
       save();
-      if (state.step < TEST.blockA.length) { show('screenA'); renderSituation(); }
-      else { show('screenB'); renderBlockB(); }
+      if (state.step < TEST.blockA.length) {
+        markStep(TEST.blockA[state.step].id);
+        show('screenA'); renderSituation();
+      } else {
+        markStep('blockB');
+        show('screenB'); renderBlockB();
+      }
     });
 
     $('aBack').addEventListener('click', function () {
-      if (state.step === 0) { show('screenIntro'); return; }
+      if (state.step === 0) { markStep('intro'); show('screenIntro'); return; }
       state.step--;
       save();
+      markStep(TEST.blockA[state.step].id);
       show('screenA');
       renderSituation();
     });
@@ -256,6 +279,7 @@
     $('bBack').addEventListener('click', function () {
       state.step = TEST.blockA.length - 1;
       save();
+      markStep(TEST.blockA[state.step].id);
       show('screenA');
       renderSituation();
     });
@@ -266,6 +290,7 @@
   /* ---------- отправка ---------- */
 
   function submit() {
+    markStep(null);   // закрываем блок Б
     $('bErr').classList.add('hidden');
     show('screenWait');
 
@@ -281,7 +306,8 @@
       stage: state.stage,
       orderings: state.order,
       answerText: state.answer,
-      durationSec: Math.round((Date.now() - state.startedAt) / 1000)
+      durationSec: Math.round((Date.now() - state.startedAt) / 1000),
+      times: state.times
     }).then(function (res) {
       clearInterval(tick);
       try { sessionStorage.removeItem(STORE); } catch (e) {}
@@ -522,6 +548,7 @@
     initBlockA();
     initBlockB();
     $('introBtn').addEventListener('click', function () {
+      markStep(TEST.blockA[0].id);
       show('screenA');
       renderSituation();
     });

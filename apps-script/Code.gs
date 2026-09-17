@@ -108,6 +108,10 @@ function responseHeader() {
     head.push(sk.id + '_score', sk.id + '_zone');
   });
 
+  head.push('intro_sec');
+  CONFIG.situations.forEach(function (sid) { head.push(sid + '_sec'); });
+  head.push('blockB_sec');
+
   head.push('answer_text', 'answer_words');
   CONFIG.abilities.forEach(function (a) {
     head.push(a.id + '_level', a.id + '_flag', a.id + '_quote', a.id + '_why');
@@ -122,6 +126,15 @@ function colIndex(sh, name) {
 }
 
 /* ---------- действия ---------- */
+
+/* Замок на запись. Ждём до 30 с: судья и так держит выполнение ~20 с,
+   дольше ждать бессмысленно — лучше записать без замка, чем потерять ответ. */
+function withLock(fn) {
+  var lock = LockService.getScriptLock();
+  var got = false;
+  try { got = lock.tryLock(30000); } catch (e) {}
+  try { fn(); } finally { if (got) lock.releaseLock(); }
+}
 
 function makeCode() {
   // без 0/O и 1/I: код диктуют вслух и вводят с телефона
@@ -142,7 +155,7 @@ function createSession(p) {
   var guard = 0;
   while (existing[code] && guard++ < 50) code = makeCode();
 
-  sh.appendRow([code, title, stage, new Date().toISOString()]);
+  withLock(function () { sh.appendRow([code, title, stage, new Date().toISOString()]); });
   return { ok: true, code: code, title: title, stage: stage };
 }
 
@@ -179,12 +192,15 @@ function submit(p) {
 
   if (verdict.ok) map = buildMap(CONFIG.skills, orderings, verdict.judge);
 
-  // 3. Строка сохраняется в любом случае.
+  // 3. Строка сохраняется в любом случае. Под замком: группа отправляет ответы
+  //    почти одновременно, и без него две записи могут наложиться.
   var rowId = Utilities.getUuid();
-  writeResponse({
-    rowId: rowId, code: code, stage: stage,
-    durationSec: Number(p.durationSec || 0),
-    orderings: orderings, map: map, answer: answer, verdict: verdict
+  withLock(function () {
+    writeResponse({
+      rowId: rowId, code: code, stage: stage,
+      durationSec: Number(p.durationSec || 0), times: p.times || {},
+      orderings: orderings, map: map, answer: answer, verdict: verdict
+    });
   });
 
   return {
@@ -200,27 +216,69 @@ function submit(p) {
 
 function writeResponse(d) {
   var sh = sheet(SHEET_RESPONSES);
-  var row = [d.rowId, d.code, d.stage, new Date().toISOString(), d.durationSec];
+  var v = {};
+
+  v.row_id = d.rowId;
+  v.session_code = d.code;
+  v.stage = d.stage;
+  v.submitted_at = new Date().toISOString();
+  v.duration_sec = d.durationSec;
 
   CONFIG.situations.forEach(function (sid) {
-    row.push((d.orderings[sid] || []).join(''), d.map.perSituation[sid] === undefined ? '' : d.map.perSituation[sid]);
+    v[sid + '_order'] = (d.orderings[sid] || []).join('');
+    v[sid + '_score'] = d.map.perSituation[sid] === undefined ? '' : d.map.perSituation[sid];
   });
-  d.map.skills.forEach(function (sk) { row.push(sk.score, sk.zone); });
+  d.map.skills.forEach(function (sk) {
+    v[sk.id + '_score'] = sk.score;
+    v[sk.id + '_zone'] = sk.zone;
+  });
 
-  row.push(d.answer, countWords(d.answer));
+  var t = d.times || {};
+  v.intro_sec = t.intro === undefined ? '' : t.intro;
+  CONFIG.situations.forEach(function (sid) {
+    v[sid + '_sec'] = t[sid] === undefined ? '' : t[sid];
+  });
+  v.blockB_sec = t.blockB === undefined ? '' : t.blockB;
+
+  v.answer_text = d.answer;
+  v.answer_words = countWords(d.answer);
 
   CONFIG.abilities.forEach(function (a) {
     var got = d.verdict.ok && d.verdict.judge[a.id] ? d.verdict.judge[a.id] : null;
-    row.push(got ? got.level : '', got ? (got.flag ? 'да' : '') : '',
-             got ? (got.quote || '') : '', got ? (got.why || '') : '');
+    v[a.id + '_level'] = got ? got.level : '';
+    v[a.id + '_flag'] = got ? (got.flag ? 'да' : '') : '';
+    v[a.id + '_quote'] = got ? (got.quote || '') : '';
+    v[a.id + '_why'] = got ? (got.why || '') : '';
   });
 
-  row.push(d.verdict.ok ? (d.verdict.judge.feedback || '') : '',
-           d.verdict.ok ? 'ok' : 'error',
-           d.verdict.ok ? '' : String(d.verdict.error || ''),
-           d.verdict.model || '',
-           JUDGE_PROMPT_VERSION, CONFIG.testVersion);
+  v.feedback = d.verdict.ok ? (d.verdict.judge.feedback || '') : '';
+  v.judge_status = d.verdict.ok ? 'ok' : 'error';
+  v.judge_error = d.verdict.ok ? '' : String(d.verdict.error || '');
+  v.judge_model = d.verdict.model || '';
+  v.judge_prompt_version = JUDGE_PROMPT_VERSION;
+  v.test_version = CONFIG.testVersion;
 
+  appendByHeader(sh, v);
+}
+
+/* Кладёт строку по именам колонок и дописывает недостающие в конец.
+   Так добавление колонки не сдвигает уже накопленные строки. */
+function appendByHeader(sh, values) {
+  var head = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0]
+               .map(function (h) { return String(h); });
+
+  var missing = [];
+  for (var key in values) {
+    if (Object.prototype.hasOwnProperty.call(values, key) && head.indexOf(key) < 0) missing.push(key);
+  }
+  if (missing.length) {
+    sh.getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
+    head = head.concat(missing);
+  }
+
+  var row = head.map(function (name) {
+    return Object.prototype.hasOwnProperty.call(values, name) ? values[name] : '';
+  });
   sh.appendRow(row);
 }
 
@@ -304,9 +362,21 @@ function summary(p) {
   });
 
   var count = 0;
+  var durations = [];
+  var stepSums = {}, stepCounts = {};
+  var durCol = head.indexOf('duration_sec');
+
   for (var i = 1; i < values.length; i++) {
     if (values[i][codeCol] !== code) continue;
     count++;
+
+    var dur = Number(values[i][durCol] || 0);
+    if (dur > 0) durations.push(dur);
+    ['intro'].concat(CONFIG.situations).concat(['blockB']).forEach(function (key) {
+      var c = head.indexOf(key + '_sec');
+      var v = c >= 0 ? Number(values[i][c] || 0) : 0;
+      if (v > 0) { stepSums[key] = (stepSums[key] || 0) + v; stepCounts[key] = (stepCounts[key] || 0) + 1; }
+    });
     CONFIG.skills.forEach(function (sk, k) {
       var max = sk.situations.length * 4;
       var score = Number(values[i][head.indexOf(sk.id + '_score')] || 0);
@@ -326,5 +396,32 @@ function summary(p) {
   skills.forEach(function (sk) { sk.mean = count ? sk.sum / count : 0; delete sk.sum; });
 
   var session = findSession(code);
-  return { ok: true, session: session, summary: { count: count, skills: skills } };
+  return { ok: true, session: session,
+           summary: { count: count, skills: skills, time: timeStats(durations, stepSums, stepCounts) } };
+}
+
+/* Сколько реально уходит на прохождение. Медиана, а не среднее: один человек,
+   отошедший за кофе, среднее перекосит, медиану — нет. */
+function timeStats(durations, stepSums, stepCounts) {
+  var sorted = durations.slice().sort(function (a, b) { return a - b; });
+  var steps = {};
+  for (var key in stepSums) {
+    if (Object.prototype.hasOwnProperty.call(stepSums, key)) {
+      steps[key] = Math.round(stepSums[key] / stepCounts[key]);
+    }
+  }
+  return {
+    n: sorted.length,
+    median: median(sorted),
+    min: sorted.length ? sorted[0] : 0,
+    max: sorted.length ? sorted[sorted.length - 1] : 0,
+    over15: sorted.filter(function (v) { return v > 15 * 60; }).length,
+    steps: steps
+  };
+}
+
+function median(sorted) {
+  if (!sorted.length) return 0;
+  var mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }

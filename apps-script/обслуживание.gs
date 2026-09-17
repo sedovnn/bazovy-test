@@ -63,3 +63,37 @@ function собратьПлан() {
 
   return { sessions: sessions, responses: responses };
 }
+
+/* ---------- сколько человек выдержит бэкенд ----------
+   Anthropic возвращает свои лимиты заголовками на каждый ответ. Пределы зависят
+   от уровня организации, угадывать их нельзя — надо спросить у API.
+   Запустить показатьЛимиты и прочитать журнал. */
+function показатьЛимиты() {
+  var key = PROP.getProperty('ANTHROPIC_API_KEY');
+  if (!key) { Logger.log('Не задан ANTHROPIC_API_KEY'); return; }
+
+  var res = UrlFetchApp.fetch(ANTHROPIC_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-api-key': key, 'anthropic-version': ANTHROPIC_VERSION },
+    payload: JSON.stringify({
+      model: judgeModel(), max_tokens: 1, thinking: { type: 'disabled' },
+      messages: [{ role: 'user', content: 'ок' }]
+    }),
+    muteHttpExceptions: true
+  });
+
+  var h = res.getAllHeaders();
+  Logger.log('модель: ' + judgeModel() + ' · ответ ' + res.getResponseCode());
+  Object.keys(h).sort().forEach(function (name) {
+    if (name.toLowerCase().indexOf('ratelimit') >= 0 || name.toLowerCase() === 'retry-after') {
+      Logger.log('  ' + name + ': ' + h[name]);
+    }
+  });
+
+  var promptLen = JUDGE_PROMPT.length;
+  Logger.log('длина промпта судьи: ' + promptLen + ' знаков (≈' +
+             Math.round(promptLen / 2.5) + ' токенов на каждый вызов)');
+  Logger.log('Сколько человек в минуту выдержит API = лимит входных токенов в минуту / ' +
+             'токены на вызов. Кэш промпта считается дешевле, точная доля — по заголовкам выше.');
+}

@@ -22,8 +22,11 @@ function makeSheet(name) {
       getValues: () => rows.map(r => r.slice()),
     }),
     getRange: (row, col, nRows, nCols) => ({
-      getValues: () => [rows[row - 1].slice(col - 1, col - 1 + (nCols || 1))],
+      getValues: () => [(rows[row - 1] || []).slice(col - 1, col - 1 + (nCols || 1))],
       setValue: v => { rows[row - 1][col - 1] = v; },
+      setValues: vals => {
+        vals[0].forEach((v, i) => { rows[row - 1][col - 1 + i] = v; });
+      },
     }),
     getLastColumn: () => rows.length ? rows[0].length : 0,
     setFrozenRows: () => {},
@@ -56,6 +59,13 @@ global.ContentService = {
   createTextOutput: t => ({ setMimeType: () => ({ getContent: () => t }) }),
 };
 global.Logger = { log: m => console.log('  [Logger] ' + m) };
+let lockHeld = 0;
+global.LockService = {
+  getScriptLock: () => ({
+    tryLock: () => { lockHeld++; return true; },
+    releaseLock: () => { lockHeld--; },
+  }),
+};
 
 global.UrlFetchApp = {
   fetch: (url, opt) => {
@@ -133,7 +143,8 @@ check('несуществующий отклонён', post({ action: 'checkSess
 
 console.log('\n3. Отправка — судья отвечает');
 fetchMode = 'ok'; fetchCalls = 0;
-const r1 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 640 });
+const времена = { intro: 35, ak1: 74, ak2: 88, ga2: 61, pr2: 95, mk2: 70, pp2: 66, blockB: 305 };
+const r1 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 640, times: времена });
 check('judge_status = ok', r1.judge_status === 'ok', r1.judge_error);
 check('судья вызван один раз', fetchCalls === 1, 'вызовов ' + fetchCalls);
 check('пять навыков в карте', r1.map.skills.length === 5);
@@ -143,6 +154,12 @@ check('уровень ГА-1 доехал', r1.map.skills[1].level === 2);
 check('флаг ПР-1 сохранён', r1.map.skills[2].flag === true);
 check('строка «различаю, но не делаю» есть', r1.map.gaps.indexOf('Генерация альтернатив') >= 0, JSON.stringify(r1.map.gaps));
 check('строка записана в responses', sheets['responses']._rows.length === 2);
+{
+  const h = sheets['responses']._rows[0], r = sheets['responses']._rows[1];
+  check('время блока Б записано', r[h.indexOf('blockB_sec')] === 305);
+  check('время по ситуациям записано', CONFIG.situations.every(sid => r[h.indexOf(sid + '_sec')] > 0));
+  check('колонки времени есть в шапке', h.includes('intro_sec') && h.includes('blockB_sec'));
+}
 
 console.log('\n4. Отправка — судья падает (HTTP 500)');
 fetchMode = 'http500'; fetchCalls = 0;
@@ -185,7 +202,24 @@ check('средняя по шкале посчитана', typeof s.summary.skil
 check('уровни разложены', s.summary.skills[1].levels[1] === 3, JSON.stringify(s.summary.skills[1].levels));
 check('имён и текстов в агрегате нет', JSON.stringify(s.summary).indexOf('сервисом ведения') < 0);
 
-console.log('\n8. Мелочи');
+console.log('\n8. Добавление колонки не ломает прежние строки');
+{
+  const sh = sheets['responses'];
+  const былоШирина = sh._rows[0].length;
+  const былоСтрок = sh._rows.length;
+  appendByHeader(sh, { row_id: 'проверка', session_code: code, новая_колонка: 'значение' });
+  const h = sh._rows[0];
+  check('колонка дописана в конец', h[h.length - 1] === 'новая_колонка');
+  check('прежние строки не сдвинулись',
+        sh._rows[1][h.indexOf('session_code')] === code &&
+        sh._rows[1][h.indexOf('blockB_sec')] === 305);
+  check('новая строка легла по именам',
+        sh._rows[былоСтрок][h.indexOf('новая_колонка')] === 'значение' &&
+        sh._rows[былоСтрок][h.indexOf('row_id')] === 'проверка');
+  sh._rows.pop();
+}
+
+console.log('\n9. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
 // версии не зашиваем: они меняются при каждой вычитке
 const версии = JSON.parse(doGet().getContent());

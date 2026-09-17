@@ -81,8 +81,52 @@
       prof.appendChild(groupRow(sk, summary.count));
     });
 
+    renderTime(summary.time);
     renderZoneTable(summary);
     renderLevelTable(summary);
+  }
+
+  /* Время. Медиана наверху, разбивка по шагам — в подробностях: ведущему на
+     пилоте нужно знать, укладывается ли тест в пятнадцать минут и где затык. */
+  function renderTime(t) {
+    if (!t || !t.n) {
+      $('statTime').textContent = '—';
+      $('timeTable').querySelector('tbody').innerHTML = '';
+      return;
+    }
+
+    $('statTime').textContent = mmss(t.median);
+
+    var names = { intro: 'Инструкция', blockB: 'Свободный ответ' };
+    TEST.blockA.forEach(function (s, i) { names[s.id] = 'Ситуация ' + (i + 1); });
+
+    var tb = $('timeTable').querySelector('tbody');
+    tb.innerHTML = '';
+
+    add('Медиана прохождения', mmss(t.median));
+    add('Быстрее всех', mmss(t.min));
+    add('Дольше всех', mmss(t.max));
+    add('Не уложились в 15 минут', t.over15 + ' из ' + t.n);
+
+    var order = ['intro'].concat(TEST.blockA.map(function (s) { return s.id; })).concat(['blockB']);
+    order.forEach(function (key) {
+      if (t.steps && t.steps[key]) add('среднее · ' + (names[key] || key), mmss(t.steps[key]));
+    });
+
+    function add(label, value) {
+      var tr = document.createElement('tr');
+      tr.appendChild(cell(label));
+      var td = cell(value);
+      td.style.whiteSpace = 'nowrap';
+      tr.appendChild(td);
+      tb.appendChild(tr);
+    }
+  }
+
+  function mmss(sec) {
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   function groupRow(sk, total) {

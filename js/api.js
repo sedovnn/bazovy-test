@@ -160,7 +160,12 @@ var MOCK = {
         if (r.level) skills[j].levels[r.level - 1]++;
       }
     }
-    return { count: rows.length, skills: skills };
+    var dur = rows.map(function (r) { return r.duration_sec || 0; })
+                  .filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+    return { count: rows.length, skills: skills,
+             time: { n: dur.length, median: dur.length ? dur[Math.floor(dur.length / 2)] : 0,
+                     min: dur[0] || 0, max: dur[dur.length - 1] || 0,
+                     over15: dur.filter(function (v) { return v > 900; }).length, steps: {} } };
   }
 };
 
