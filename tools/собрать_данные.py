@@ -185,9 +185,9 @@ def main():
         'skills': [{'id': i, 'name': n, 'situations': sit, 'ability': ab} for i, n, sit, ab in SKILLS],
         'abilities': [{'id': i, 'name': n} for i, n in ABILITIES],
         'zones': ['не видит', 'видит, путает', 'выбирает'],
-        'stages': [{'id': 'baseline', 'name': 'До программы'},
+        'stages': [{'id': 'baseline', 'name': 'До модуля'},
                    {'id': 'module', 'name': 'После модуля'},
-                   {'id': 'final', 'name': 'Финал'}],
+                   {'id': 'final', 'name': 'Единоразовый'}],
     }
 
     (ROOT / 'js' / 'data.js').write_text(

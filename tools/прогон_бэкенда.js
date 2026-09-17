@@ -187,7 +187,11 @@ check('имён и текстов в агрегате нет', JSON.stringify(s.
 
 console.log('\n8. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
-check('doGet отвечает версиями', JSON.parse(doGet().getContent()).judge === 'v1.1');
+// версии не зашиваем: они меняются при каждой вычитке
+const версии = JSON.parse(doGet().getContent());
+check('doGet отвечает версиями',
+      версии.judge === JUDGE_PROMPT_VERSION && версии.test === CONFIG.testVersion,
+      JSON.stringify(версии));
 
 console.log(fails ? `\nПРОВАЛЕНО: ${fails}` : '\nВсё сошлось.');
 process.exit(fails ? 1 : 0);
