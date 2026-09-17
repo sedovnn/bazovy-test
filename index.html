@@ -117,17 +117,25 @@
 <!-- 6. карта участника -->
 <section class="frame map hidden" id="screenMap">
   <p class="kicker">Результат</p>
-  <h2 class="hero-h" style="font-size:var(--fs-place);text-transform:none">Ваша карта</h2>
-  <p class="lead read" style="margin-top:12px">Пять навыков. Зона показывает, как вы различаете силу ходов; уровень — что из этого вы сделали в собственном тексте.</p>
+  <h2 class="screen-h">Ваша карта</h2>
 
-  <div id="mapSkills"></div>
+  <!-- Сначала две фразы: где сильны, где нет. Потом картина. Механика оценки —
+       под «подробнее»: результат должен читаться взглядом, а не собираться из чисел. -->
+  <p class="lead read" id="mapLead"></p>
+
+  <div class="profile" id="mapProfile"></div>
 
   <div class="gap-line hidden" id="gapLine"></div>
 
   <div style="margin:32px 0 0" class="read">
-    <p class="kicker">Обратная связь</p>
+    <p class="kicker">Разбор вашей записки</p>
     <div id="feedbackBox"></div>
   </div>
+
+  <details class="details">
+    <summary>Подробнее: из чего это сложилось</summary>
+    <div class="details-body" id="mapDetails"></div>
+  </details>
 
   <div style="margin:32px 0 0">
     <p class="util">Результат сохранён. Ведущий видит только сводку по группе — без имён и без текстов.</p>

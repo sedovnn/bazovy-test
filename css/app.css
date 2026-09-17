@@ -737,4 +737,87 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 /* Узкая колонка на телефоне: таблица агрегата прокручивается, а не ломается. */
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* ---------- профиль: одна картина вместо таблицы чисел ----------
+   Наверху карты — то, что читается взглядом: где вы сильны, где нет.
+   Числа, уровни и разбор гейтов уехали под «подробнее»: это кухня оценки,
+   а не результат. */
+
+.profile { margin: 24px 0 0; }
+
+.prow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 16px 0;
+  border-top: 1px solid var(--hairline);
+  align-items: center;
+}
+
+.prow:last-child { border-bottom: 1px solid var(--hairline); }
+
+.prow-name { font-size: var(--fs-sub); font-weight: 700; }
+
+/* Три ступени. Пройденные залиты, текущая — акцентом, дальние — серые.
+   Никаких чисел: ступень названа словом справа. */
+.ptrack { display: flex; gap: 4px; }
+
+.ptrack i {
+  height: 8px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--hairline);
+}
+
+.ptrack i.is-passed { background: var(--accent-line); }
+.ptrack i.is-here { background: var(--accent); }
+
+.prow-word {
+  font-size: var(--fs-dense);
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.prow-word.is-low { color: var(--muted); }
+
+/* Приписка появляется только там, где записка отстаёт от расстановки.
+   Где не отстаёт — строки нет: пустая строка читалась бы как поломка. */
+.prow-lag {
+  font-size: var(--fs-util);
+  color: var(--muted);
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 700px) {
+  .prow {
+    grid-template-columns: minmax(160px, 220px) minmax(120px, 1fr) minmax(110px, auto);
+    gap: 16px;
+  }
+  .prow-lag { grid-column: 2 / -1; margin-top: -4px; }
+}
+
+/* ---------- подробности: механика оценки, свёрнутая по умолчанию ---------- */
+
+.details {
+  margin: 32px 0 0;
+  border-top: 1px solid var(--hairline);
+  padding-top: 16px;
+}
+
+.details > summary {
+  cursor: pointer;
+  font-size: var(--fs-dense);
+  font-weight: 700;
+  color: var(--muted);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.details > summary::-webkit-details-marker { display: none; }
+.details > summary::after { content: '▾'; font-size: 10px; }
+.details[open] > summary::after { content: '▴'; }
+.details > summary:hover { color: var(--ink); }
+.details-body { margin-top: 16px; }
+
 .hidden { display: none !important; }

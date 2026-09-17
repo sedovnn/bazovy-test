@@ -295,13 +295,130 @@
     });
   }
 
-  /* ---------- карта ---------- */
+  /* ---------- карта ----------
+     Наверху — две фразы и одна картина: где сильны, где нет. Числа, уровни
+     и разбор гейтов — под «подробнее»: это кухня оценки, а не результат. */
+
+  var BANDS = ['не видит', 'видит, путает', 'выбирает'];
+
+  /* ⚠ Уровень записки L1–L5 сведён к трём ступеням расстановки, чтобы отставание
+     можно было показать на одной картинке. Спека такого сведения не задаёт —
+     это моё огрубление, и менять его методологу здесь, одним местом. */
+  function levelBand(level) {
+    if (!level) return null;
+    if (level <= 2) return 0;
+    if (level === 3) return 1;
+    return 2;
+  }
 
   function renderMap(res) {
-    var box = $('mapSkills');
+    var rows = res.map.skills.map(function (sk) {
+      return {
+        name: sk.name,
+        band: sk.zoneIndex,
+        lag: sk.level ? (levelBand(sk.level) < sk.zoneIndex) : false,
+        raw: sk
+      };
+    });
+
+    $('mapLead').textContent = leadText(rows);
+
+    var box = $('mapProfile');
+    box.innerHTML = '';
+    rows.forEach(function (r) { box.appendChild(profileRow(r)); });
+
+    // «различаю, но не делаю» — вывод поперёк строк, поэтому отдельным блоком
+    var gaps = res.map.gaps || [];
+    if (gaps.length) {
+      $('gapLine').innerHTML = '<b>Различаю, но не делаю.</b> Сильные ходы вы узнаёте — ' +
+        escapeHtml(gaps.join(', ')) + ' — а в собственном тексте их не сделали.';
+      $('gapLine').classList.remove('hidden');
+    } else {
+      $('gapLine').classList.add('hidden');
+    }
+
+    var fb = $('feedbackBox');
+    if (res.judge_status === 'ok' && res.feedback) {
+      fb.className = 'read';
+      fb.textContent = res.feedback;
+    } else {
+      fb.className = 'judge-fail';
+      fb.textContent = 'Записку оценить не удалось. Расстановка посчитана и сохранена, ' +
+                       'текст тоже сохранён — ведущий может запросить разбор повторно.';
+    }
+
+    renderDetails(res, rows);
+  }
+
+  /* Две фразы вместо шапки-объяснения: их читают, объяснение шкалы — нет. */
+  function leadText(rows) {
+    var strong = rows.filter(function (r) { return r.band === 2; }).map(nameOf);
+    var weak = rows.filter(function (r) { return r.band === 0; }).map(nameOf);
+    var parts = [];
+
+    if (strong.length) parts.push('Сильнее всего — ' + list(strong) + '.');
+    if (weak.length) parts.push((strong.length ? 'Слабее' : 'Слабее всего') + ' — ' + list(weak) + '.');
+    if (!parts.length) parts.push('Выраженных краёв нет: все пять навыков в середине.');
+
+    return parts.join(' ');
+  }
+
+  function nameOf(r) { return r.name.toLowerCase(); }
+
+  function list(items) {
+    if (items.length === 1) return items[0];
+    return items.slice(0, -1).join(', ') + ' и ' + items[items.length - 1];
+  }
+
+  function profileRow(r) {
+    var row = document.createElement('div');
+    row.className = 'prow';
+
+    var name = document.createElement('span');
+    name.className = 'prow-name';
+    name.textContent = r.name;
+    row.appendChild(name);
+
+    var track = document.createElement('span');
+    track.className = 'ptrack';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', r.name + ': ' + BANDS[r.band]);
+    for (var i = 0; i < 3; i++) {
+      var seg = document.createElement('i');
+      seg.className = i < r.band ? 'is-passed' : (i === r.band ? 'is-here' : '');
+      track.appendChild(seg);
+    }
+    row.appendChild(track);
+
+    var word = document.createElement('span');
+    word.className = 'prow-word' + (r.band === 0 ? ' is-low' : '');
+    word.textContent = BANDS[r.band];
+    row.appendChild(word);
+
+    // приписка только там, где записка отстала: пустая строка читалась бы как поломка
+    if (r.lag) {
+      var lag = document.createElement('span');
+      lag.className = 'prow-lag';
+      lag.textContent = 'в собственном тексте — ниже';
+      row.appendChild(lag);
+    }
+
+    return row;
+  }
+
+  /* Подробности: всё, что раньше стояло наверху. Свёрнуто по умолчанию. */
+  function renderDetails(res, rows) {
+    var box = $('mapDetails');
     box.innerHTML = '';
 
-    res.map.skills.forEach(function (sk) {
+    var intro = document.createElement('p');
+    intro.className = 'util read';
+    intro.textContent = 'Расстановка — как вы различаете силу готовых ответов. ' +
+      'Записка — что из этого вы сделали сами, когда готовых ответов не было.';
+    box.appendChild(intro);
+
+    rows.forEach(function (r) {
+      var sk = r.raw;
       var wrap = document.createElement('div');
       wrap.className = 'skill';
 
@@ -314,51 +431,26 @@
 
       var score = document.createElement('span');
       score.className = 'skill-score';
-      score.textContent = 'расстановка ' + sk.score + ' из ' + sk.max;
+      score.textContent = 'расстановка ' + sk.score + ' из ' + sk.max + ' · ' + sk.zone;
 
       top.appendChild(name);
       top.appendChild(score);
       wrap.appendChild(top);
 
-      var zone = document.createElement('span');
-      zone.className = 'zone zone-' + (sk.zoneIndex + 1);
-      zone.textContent = sk.zone;
-      wrap.appendChild(zone);
-
       if (sk.ability) {
         var b = document.createElement('p');
         b.className = 'skill-b';
         if (sk.level) {
-          b.innerHTML = levelDots(sk.level) + 'свободный ответ — уровень <b>L' + sk.level + '</b>';
+          b.innerHTML = levelDots(sk.level) + 'записка — уровень <b>L' + sk.level + '</b>';
           if (sk.why) b.innerHTML += '<br /><span class="util">' + escapeHtml(sk.why) + '</span>';
         } else {
-          b.innerHTML = '<span class="util">свободный ответ — оценка не получена</span>';
+          b.innerHTML = '<span class="util">записка — оценка не получена</span>';
         }
         wrap.appendChild(b);
       }
 
       box.appendChild(wrap);
     });
-
-    // «различаю, но не делаю»
-    var gaps = res.map.gaps || [];
-    if (gaps.length) {
-      $('gapLine').innerHTML = '<b>Различаю, но не делаю.</b> В расстановке вы уверенно выбираете сильные ходы — ' +
-        escapeHtml(gaps.join(', ')) + ' — а в собственном тексте этого нет.';
-      $('gapLine').classList.remove('hidden');
-    } else {
-      $('gapLine').classList.add('hidden');
-    }
-
-    var fb = $('feedbackBox');
-    if (res.judge_status === 'ok' && res.feedback) {
-      fb.className = 'read';
-      fb.textContent = res.feedback;
-    } else {
-      fb.className = 'judge-fail';
-      fb.textContent = 'Оценка свободного ответа не получена. Расстановка посчитана и сохранена, ' +
-                       'записка тоже сохранена — ведущий может запросить повторную оценку.';
-    }
   }
 
   function levelDots(level) {
