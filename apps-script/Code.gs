@@ -293,8 +293,14 @@ function summary(p) {
   var head = values[0];
   var codeCol = head.indexOf('session_code');
 
+  /* Сводка идёт по ТОЙ ЖЕ общей шкале, что и карта участника: иначе у ведущего
+     и у участника получаются две разные системы оценки — ровно то, чего быть
+     не должно. buckets — сколько человек в низу, середине и верху шкалы.
+     zones и levels остаются в ответе для подробностей, свёрнутых на экране. */
   var skills = CONFIG.skills.map(function (sk) {
-    return { id: sk.id, name: sk.name, ability: sk.ability, zones: [0, 0, 0], levels: [0, 0, 0, 0, 0] };
+    return { id: sk.id, name: sk.name, ability: sk.ability,
+             buckets: [0, 0, 0], zones: [0, 0, 0], levels: [0, 0, 0, 0, 0],
+             judged: 0, sum: 0 };
   });
 
   var count = 0;
@@ -302,15 +308,22 @@ function summary(p) {
     if (values[i][codeCol] !== code) continue;
     count++;
     CONFIG.skills.forEach(function (sk, k) {
-      var zone = String(values[i][head.indexOf(sk.id + '_zone')] || '');
-      var zi = CONFIG.zones.indexOf(zone);
+      var max = sk.situations.length * 4;
+      var score = Number(values[i][head.indexOf(sk.id + '_score')] || 0);
+      var lvl = sk.ability ? Number(values[i][head.indexOf(sk.ability + '_level')] || 0) : 0;
+      if (!(lvl >= 1 && lvl <= 5)) lvl = 0;
+
+      var value = combinedValue(score, max, lvl);
+      skills[k].buckets[valueBucket(value)]++;
+      skills[k].sum += value;
+
+      var zi = CONFIG.zones.indexOf(String(values[i][head.indexOf(sk.id + '_zone')] || ''));
       if (zi >= 0) skills[k].zones[zi]++;
-      if (sk.ability) {
-        var lvl = Number(values[i][head.indexOf(sk.ability + '_level')] || 0);
-        if (lvl >= 1 && lvl <= 5) skills[k].levels[lvl - 1]++;
-      }
+      if (lvl) { skills[k].levels[lvl - 1]++; skills[k].judged++; }
     });
   }
+
+  skills.forEach(function (sk) { sk.mean = count ? sk.sum / count : 0; delete sk.sum; });
 
   var session = findSession(code);
   return { ok: true, session: session, summary: { count: count, skills: skills } };

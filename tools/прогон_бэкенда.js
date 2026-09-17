@@ -177,6 +177,11 @@ console.log('\n7. Агрегат');
 const s = post({ action: 'summary', code });
 check('посчитаны все три отправки', s.summary.count === 3, 'count=' + s.summary.count);
 check('зоны разложены', s.summary.skills[0].zones[2] === 3, JSON.stringify(s.summary.skills[0].zones));
+check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 3, JSON.stringify(s.summary.skills[0].buckets));
+check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 3, JSON.stringify(s.summary.skills[4].buckets));
+check('сумма по вёдрам = числу прошедших',
+      s.summary.skills.every(sk => sk.buckets.reduce((a,b)=>a+b,0) === s.summary.count));
+check('средняя по шкале посчитана', typeof s.summary.skills[0].mean === 'number');
 check('уровни разложены', s.summary.skills[1].levels[1] === 3, JSON.stringify(s.summary.skills[1].levels));
 check('имён и текстов в агрегате нет', JSON.stringify(s.summary).indexOf('сервисом ведения') < 0);
 

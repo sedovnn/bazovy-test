@@ -74,30 +74,63 @@
   function render(summary) {
     $('statCount').textContent = summary.count;
 
+    // одна картина: пять навыков, одна шкала, доли группы по трети шкалы
+    var prof = $('groupProfile');
+    prof.innerHTML = '';
+    summary.skills.forEach(function (sk) {
+      prof.appendChild(groupRow(sk, summary.count));
+    });
+
+    renderZoneTable(summary);
+    renderLevelTable(summary);
+  }
+
+  function groupRow(sk, total) {
+    var row = document.createElement('div');
+    row.className = 'prow';
+
+    var name = document.createElement('span');
+    name.className = 'prow-name';
+    name.textContent = sk.name;
+    row.appendChild(name);
+
+    var buckets = sk.buckets || [0, 0, 0];
+    var track = document.createElement('span');
+    track.className = 'dist';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', sk.name + ': низ ' + buckets[0] +
+      ', середина ' + buckets[1] + ', верх ' + buckets[2]);
+    ['z1', 'z2', 'z3'].forEach(function (cls, i) {
+      var seg = document.createElement('i');
+      seg.className = cls;
+      seg.style.width = total ? (buckets[i] * 100 / total) + '%' : '0';
+      track.appendChild(seg);
+    });
+    row.appendChild(track);
+
+    var counts = document.createElement('span');
+    counts.className = 'prow-lag';
+    counts.textContent = total
+      ? buckets[0] + ' · ' + buckets[1] + ' · ' + buckets[2] + ' человек'
+      : 'пока никто не прошёл';
+    row.appendChild(counts);
+
+    return row;
+  }
+
+  function renderZoneTable(summary) {
     var zb = $('zoneTable').querySelector('tbody');
     zb.innerHTML = '';
     summary.skills.forEach(function (sk) {
       var total = sk.zones[0] + sk.zones[1] + sk.zones[2];
       var tr = document.createElement('tr');
-
       tr.appendChild(cell(sk.name));
-
-      var bar = document.createElement('td');
-      var dist = document.createElement('span');
-      dist.className = 'dist';
-      ['z1', 'z2', 'z3'].forEach(function (cls, i) {
-        var seg = document.createElement('i');
-        seg.className = cls;
-        seg.style.width = total ? (sk.zones[i] * 100 / total) + '%' : '0';
-        dist.appendChild(seg);
-      });
-      bar.appendChild(dist);
-      tr.appendChild(bar);
-
       for (var i = 0; i < 3; i++) tr.appendChild(cell(num(sk.zones[i], total)));
       zb.appendChild(tr);
     });
+  }
 
+  function renderLevelTable(summary) {
     var lb = $('levelTable').querySelector('tbody');
     lb.innerHTML = '';
     summary.skills.filter(function (sk) { return sk.ability; }).forEach(function (sk) {

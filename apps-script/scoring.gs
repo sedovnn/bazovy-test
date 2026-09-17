@@ -15,6 +15,29 @@
 
 var IDEAL = [5, 4, 3, 2, 1];
 
+
+/* ---------- общая шкала ----------
+   Спека v1.1, раздел «Что видит участник»: обе части нормируются в 0…1 и
+   усредняются с равным весом; у «Анализа контекста» записки нет, часть одна.
+   Определение живёт ЗДЕСЬ и только здесь — им пользуются и карта участника,
+   и сводка ведущего, иначе формулы разъедутся. */
+function combinedValue(score, max, level) {
+  var parts = [max ? score / max : 0];
+  if (level) parts.push((level - 1) / 4);
+  var sum = 0;
+  for (var i = 0; i < parts.length; i++) sum += parts[i];
+  return sum / parts.length;
+}
+
+/* Треть общей шкалы: 0 низ, 1 середина, 2 верх. */
+function valueBucket(value) {
+  if (value < 1 / 3) return 0;
+  if (value < 2 / 3) return 1;
+  return 2;
+}
+
+var BUCKET_NAMES = ['низ', 'середина', 'верх'];
+
 /* Балл за одну ситуацию, 0–4.
    Спека: «полное совпадение 4; перестановка соседей 3; L5/L4 первым, середина
    перепутана 2; L5/L4 на 2–3-м месте 1; ниже 0».
@@ -117,6 +140,7 @@ function buildMap(skills, orderings, judge) {
       max: sk.situations.length * 4,
       zoneIndex: zi,
       zone: ZONE_NAMES[zi],
+      value: combinedValue(sum, sk.situations.length * 4, null),
       ability: sk.ability || null,
       level: null,
       flag: false,
@@ -130,6 +154,7 @@ function buildMap(skills, orderings, judge) {
       row.flag = !!a.flag;
       row.quote = a.quote || '';
       row.why = a.why || '';
+      row.value = combinedValue(sum, sk.situations.length * 4, a.level);
 
       if (zi >= GAP_ZONE && a.level && a.level <= GAP_MAX_LEVEL) {
         gaps.push(sk.name);
@@ -143,5 +168,8 @@ function buildMap(skills, orderings, judge) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { scoreSituation: scoreSituation, zoneIndex: zoneIndex, buildMap: buildMap };
+  module.exports = {
+    scoreSituation: scoreSituation, zoneIndex: zoneIndex, buildMap: buildMap,
+    combinedValue: combinedValue, valueBucket: valueBucket, BUCKET_NAMES: BUCKET_NAMES
+  };
 }
