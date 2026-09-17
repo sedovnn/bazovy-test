@@ -13,7 +13,8 @@
    Свойства скрипта (Настройки проекта → Свойства скрипта):
      ANTHROPIC_API_KEY — обязательное
      MODEL             — необязательное, по умолчанию claude-sonnet-5
-     SHEET_ID          — проставляется скриптом при первом запуске */
+     SHEET_ID          — id вашей таблицы; если не задать, скрипт заведёт свою
+                         и запишет сюда её id сам */
 
 var PROP = PropertiesService.getScriptProperties();
 
@@ -56,6 +57,8 @@ function json(obj) {
 
 /* ---------- таблица ---------- */
 
+/* Таблица. Если в свойствах задан SHEET_ID — работаем в ней (её мог завести
+   человек руками). Если нет — заводим свою при первом обращении. */
 function book() {
   var id = PROP.getProperty('SHEET_ID');
   if (id) {
@@ -63,18 +66,21 @@ function book() {
   }
   var ss = SpreadsheetApp.create('Базовый тест — данные');
   PROP.setProperty('SHEET_ID', ss.getId());
-  setupSheets(ss);
+  setupSheets(ss, true);
   return ss;
 }
 
 function sheet(name) {
   var ss = book();
   var sh = ss.getSheetByName(name);
-  if (!sh) { setupSheets(ss); sh = ss.getSheetByName(name); }
+  if (!sh) { setupSheets(ss, false); sh = ss.getSheetByName(name); }
   return sh;
 }
 
-function setupSheets(ss) {
+/* isNew = таблицу только что завёл сам скрипт. Пустой лист по умолчанию убираем
+   ТОЛЬКО в этом случае: если таблицу завёл человек, удалять в ней листы нельзя —
+   мало ли что он там держит. */
+function setupSheets(ss, isNew) {
   if (!ss.getSheetByName(SHEET_SESSIONS)) {
     var s = ss.insertSheet(SHEET_SESSIONS);
     s.appendRow(['code', 'title', 'stage', 'created_at']);
@@ -85,8 +91,9 @@ function setupSheets(ss) {
     r.appendRow(responseHeader());
     r.setFrozenRows(1);
   }
+  if (!isNew) return;
   var first = ss.getSheetByName('Лист1') || ss.getSheetByName('Sheet1');
-  if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
+  if (first && ss.getSheets().length > 1 && first.getLastRow() === 0) ss.deleteSheet(first);
 }
 
 /* Заголовок листа responses собирается из конфига — состав ситуаций и навыков
