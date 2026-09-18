@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260918-1152" />
+<link rel="stylesheet" href="css/app.css?v=20260918-1200" />
 </head>
 <body>
 
@@ -48,6 +48,10 @@
   </form>
 
   <p class="err hidden" id="enterErr" role="alert"></p>
+
+  <p class="util hidden" id="againBox" style="margin-top:24px">
+    Вы уже проходили тест на этом устройстве — <a href="#" id="againLink">открыть свою карту</a>.
+  </p>
 </section>
 
 <!-- 2. как отвечать -->
@@ -146,6 +150,14 @@
     <div class="details-body" id="mapDetails"></div>
   </details>
 
+  <!-- Ссылка на эту же карту. Без неё карта живёт до закрытия вкладки. -->
+  <div class="info read hidden" id="keepBox" style="margin:32px 0 0">
+    <p class="kicker" style="margin-bottom:6px">Чтобы вернуться к карте</p>
+    <p style="margin:0 0 12px">Сохраните ссылку — по ней карта откроется снова, с любого устройства.</p>
+    <p class="util" style="margin:0 0 12px;word-break:break-all" id="keepLink"></p>
+    <button class="btn btn-ghost btn-sm" id="keepCopy" type="button">Скопировать ссылку</button>
+  </div>
+
   <div style="margin:32px 0 0">
     <p class="util">Результат сохранён. Ведущий видит только сводку по группе — без имён и без текстов.</p>
   </div>
@@ -153,8 +165,8 @@
 
 </main>
 
-<script src="js/data.js?v=20260918-1152"></script>
-<script src="js/api.js?v=20260918-1152"></script>
-<script src="js/test.js?v=20260918-1152"></script>
+<script src="js/data.js?v=20260918-1200"></script>
+<script src="js/api.js?v=20260918-1200"></script>
+<script src="js/test.js?v=20260918-1200"></script>
 </body>
 </html>

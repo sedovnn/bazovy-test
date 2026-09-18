@@ -7,6 +7,10 @@
 
   var TOTAL = TEST.blockA.length + 1;      // шесть ситуаций + блок Б
   var STORE = 'bt_progress_v1';
+  /* Адрес своей карты: живёт дольше вкладки, поэтому localStorage, а не
+     sessionStorage. Ключ — код сессии: у одного человека могут быть разные
+     прогоны на разных этапах. */
+  var RESULTS = 'bt_results_v1';
 
   var state = {
     code: '',
@@ -142,6 +146,15 @@
           btn.disabled = false;
           btn.textContent = 'Начать';
         });
+    });
+
+    $('codeInput').addEventListener('input', function () {
+      var typed = $('codeInput').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      var known = typed.length === 6 ? recallResult(typed) : '';
+      $('againBox').classList.toggle('hidden', !known);
+      if (known) {
+        $('againLink').onclick = function (e) { e.preventDefault(); openResult(known); };
+      }
     });
 
     // код из ссылки: index.html?s=КОД
@@ -327,7 +340,9 @@
     }).then(function (res) {
       clearInterval(tick);
       try { sessionStorage.removeItem(STORE); } catch (e) {}
+      rememberResult(state.code, res.rowId);
       renderMap(res);
+      showKeepLink(res.rowId);
       show('screenMap');
     }).catch(function (err) {
       clearInterval(tick);
@@ -512,6 +527,57 @@
     return out + '</span>';
   }
 
+  /* ---------- возврат к своей карте ---------- */
+
+  function resultLink(rowId) {
+    return location.origin + location.pathname + '?r=' + encodeURIComponent(rowId);
+  }
+
+  function rememberResult(code, rowId) {
+    try {
+      var all = JSON.parse(localStorage.getItem(RESULTS) || '{}');
+      all[code] = rowId;
+      localStorage.setItem(RESULTS, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function recallResult(code) {
+    try { return (JSON.parse(localStorage.getItem(RESULTS) || '{}'))[code] || ''; }
+    catch (e) { return ''; }
+  }
+
+  function showKeepLink(rowId) {
+    if (!rowId) { $('keepBox').classList.add('hidden'); return; }
+    var link = resultLink(rowId);
+    $('keepLink').textContent = link;
+    $('keepBox').classList.remove('hidden');
+    $('keepCopy').onclick = function () {
+      navigator.clipboard.writeText(link).then(function () {
+        $('keepCopy').textContent = 'Скопировано';
+        setTimeout(function () { $('keepCopy').textContent = 'Скопировать ссылку'; }, 1600);
+      }).catch(function () { $('keepCopy').textContent = 'Скопируйте вручную'; });
+    };
+  }
+
+  function openResult(rowId) {
+    show('screenWait');
+    $('waitNote').textContent = 'Открываем вашу карту…';
+    API.ready()
+      .then(function () { return API.result(rowId); })
+      .then(function (res) {
+        renderMap(res);
+        showKeepLink(rowId);
+        show('screenMap');
+      })
+      .catch(function (err) {
+        show('screenEnter');
+        $('enterErr').textContent = err.message === 'no_result'
+          ? 'Такой карты нет. Проверьте ссылку.'
+          : ('Не удалось открыть карту: ' + err.message);
+        $('enterErr').classList.remove('hidden');
+      });
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -555,7 +621,12 @@
 
   function init() {
     // показательная карта: index.html?demo=1
-    if (new URLSearchParams(location.search).has('demo')) {
+    var params = new URLSearchParams(location.search);
+
+    // своя карта по ссылке: index.html?r=<row_id>
+    if (params.get('r')) { openResult(params.get('r')); return; }
+
+    if (params.has('demo')) {
       renderMap(demoMap());
       show('screenMap');
       return;

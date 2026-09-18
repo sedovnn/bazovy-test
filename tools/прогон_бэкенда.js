@@ -202,6 +202,18 @@ check('повтор вернул ту же карту',
       JSON.stringify(п2.map.skills.map(s => s.score)) === JSON.stringify(п1.map.skills.map(s => s.score)));
 check('повтор вернул тот же уровень', п2.map.skills[1].level === п1.map.skills[1].level);
 
+console.log('\n3в. Открыть карту по адресу');
+{
+  const r = post({ action: 'result', rowId: п1.rowId });
+  check('карта открылась', r.ok === true && !!r.map);
+  check('та же карта, что при отправке',
+        JSON.stringify(r.map.skills.map(s => s.score)) === JSON.stringify(п1.map.skills.map(s => s.score)));
+  check('уровни на месте', r.map.skills[1].level === п1.map.skills[1].level);
+  check('судья не вызван заново', fetchCalls === вызововПосле1, 'вызовов ' + fetchCalls);
+  check('несуществующая карта отклонена', post({ action: 'result', rowId: 'нет-такой' }).error === 'no_result');
+  check('пустой адрес отклонён', post({ action: 'result' }).error === 'no_result');
+}
+
 console.log('\n4. Отправка — судья падает (HTTP 500)');
 fetchMode = 'http500'; fetchCalls = 0;
 const r2 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 700 });

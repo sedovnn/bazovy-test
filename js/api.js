@@ -52,6 +52,7 @@ var API = {
   },
   submit: function (p) { return API.call('submit', p); },
   summary: function (code) { return API.call('summary', { code: code }); },
+  result: function (rowId) { return API.call('result', { rowId: rowId }); },
   rejudge: function (rowId) { return API.call('rejudge', { rowId: rowId }); }
 };
 
@@ -136,6 +137,17 @@ var MOCK = {
       db.responses[idx].map = buildMap(TEST.skills, db.responses[idx].orderings || {}, j);
       MOCK.save(db);
       return MOCK.delay(1800, { ok: true, judge: j, judge_status: 'ok', feedback: j.feedback });
+    }
+
+    if (action === 'result') {
+      var found = null;
+      for (var k = 0; k < db.responses.length; k++) {
+        if (db.responses[k].rowId === p.rowId) found = db.responses[k];
+      }
+      if (!found) return Promise.reject(new Error('no_result'));
+      return MOCK.delay(300, { ok: true, repeat: true, rowId: found.rowId, map: found.map,
+                               judge: found.judge, judge_status: found.judge_status,
+                               feedback: found.judge ? found.judge.feedback : '' });
     }
 
     if (action === 'summary') {

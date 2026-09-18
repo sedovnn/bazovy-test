@@ -37,6 +37,7 @@ function doPost(e) {
       case 'checkSession':  return json(checkSession(payload));
       case 'submit':        return json(submit(payload));
       case 'summary':       return json(summary(payload));
+      case 'result':        return json(result(payload));
       case 'rejudge':       return json(rejudge(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
     }
@@ -323,14 +324,29 @@ function countWords(text) {
 /* Находит прежнюю отправку по ключу и пересобирает её ответ — тот же, что
    человек получил бы в первый раз. Судья повторно не вызывается. */
 function findSubmission(submissionId) {
+  return readResponse('submission_id', submissionId);
+}
+
+/* Открыть сохранённую карту по её адресу: index.html?r=<row_id>.
+   Возвращает ровно то же, что человек видел при отправке. */
+function result(p) {
+  var rowId = String(p.rowId || '').slice(0, 64);
+  if (!rowId) return { ok: false, error: 'no_result' };
+  var found = readResponse('row_id', rowId);
+  return found || { ok: false, error: 'no_result' };
+}
+
+/* Собирает ответ по строке таблицы. Судья повторно не вызывается:
+   карта пересобирается из того, что уже записано. */
+function readResponse(column, value) {
   var sh = sheet(SHEET_RESPONSES);
   var values = sh.getDataRange().getValues();
   var head = values[0].map(function (h) { return String(h); });
-  var iKey = head.indexOf('submission_id');
+  var iKey = head.indexOf(column);
   if (iKey < 0) return null;
 
   for (var i = 1; i < values.length; i++) {
-    if (String(values[i][iKey]) !== submissionId) continue;
+    if (String(values[i][iKey]) !== value) continue;
 
     var row = values[i];
     function col(name) {
@@ -360,6 +376,7 @@ function findSubmission(submissionId) {
 
     return {
       ok: true, repeat: true, rowId: String(col('row_id') || ''),
+      stage: String(col('stage') || ''),
       map: buildMap(CONFIG.skills, orderings, judge),
       judge: judge, judge_status: status || 'error',
       judge_error: String(col('judge_error') || ''),
