@@ -482,40 +482,32 @@
     intro.className = 'util read';
     intro.textContent = 'Полоса выше сводит две разные величины в одну шкалу. Тест — ' +
       'как вы различаете силу готовых ответов; зоны и шкалы для неё заданы методикой. ' +
-      'Свободный ответ — что из этого вы сделали сами, уровнями от 1 до 5.';
+      'Свободный ответ — что из этого вы сделали сами, уровнями от 1 до 5. Разбор ниже — ' +
+      'по свободному ответу.';
     box.appendChild(intro);
 
-    rows.forEach(function (r) {
+    /* Баллов расстановки здесь нет: это внутренний счёт, человеку он ничего
+       не говорит. Навыки без разбора свободного ответа не показываем вовсе —
+       пустая строка читалась бы как поломка. */
+    rows.filter(function (r) { return r.raw.ability; }).forEach(function (r) {
       var sk = r.raw;
       var wrap = document.createElement('div');
       wrap.className = 'skill';
 
-      var top = document.createElement('div');
-      top.className = 'skill-top';
-
-      var name = document.createElement('span');
+      var name = document.createElement('div');
       name.className = 'skill-name';
       name.textContent = sk.name;
+      wrap.appendChild(name);
 
-      var score = document.createElement('span');
-      score.className = 'skill-score';
-      score.textContent = 'расстановка ' + sk.score + ' из ' + sk.max + ' · ' + sk.zone;
-
-      top.appendChild(name);
-      top.appendChild(score);
-      wrap.appendChild(top);
-
-      if (sk.ability) {
-        var b = document.createElement('p');
-        b.className = 'skill-b';
-        if (sk.level) {
-          b.innerHTML = levelDots(sk.level) + 'свободный ответ — уровень <b>' + sk.level + '</b>';
-          if (sk.why) b.innerHTML += '<br /><span class="util">' + escapeHtml(sk.why) + '</span>';
-        } else {
-          b.innerHTML = '<span class="util">свободный ответ — оценка не получена</span>';
-        }
-        wrap.appendChild(b);
+      var b = document.createElement('p');
+      b.className = 'skill-b';
+      if (sk.level) {
+        b.innerHTML = levelDots(sk.level) + 'уровень <b>' + sk.level + '</b> из 5';
+        if (sk.why) b.innerHTML += '<br /><span class="util">' + escapeHtml(sk.why) + '</span>';
+      } else {
+        b.innerHTML = '<span class="util">оценка не получена</span>';
       }
+      wrap.appendChild(b);
 
       box.appendChild(wrap);
     });
