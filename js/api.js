@@ -10,7 +10,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbzXshbrdDdHR4T2nzSbAx6TlU
 /* Сколько ждём ответа. Отправке нужно больше: судья честно думает 15–20 секунд.
    Без таймаута оборванная сеть оставляет человека на экране ожидания навсегда —
    поймали ровно это. */
-var TIMEOUTS = { submit: 90000, rejudge: 90000, _default: 30000 };
+var TIMEOUTS = { submit: 90000, rejudge: 90000, result: 60000, _default: 30000 };
 
 /* Apps Script и CORS: шлём text/plain, иначе браузер делает preflight OPTIONS,
    которого веб-приложение Apps Script не отдаёт. Тело — всё равно JSON. */

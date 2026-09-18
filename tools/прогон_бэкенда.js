@@ -22,13 +22,33 @@ function makeSheet(name) {
       getValues: () => rows.map(r => r.slice()),
     }),
     getRange: (row, col, nRows, nCols) => ({
-      getValues: () => [(rows[row - 1] || []).slice(col - 1, col - 1 + (nCols || 1))],
+      getValues: () => {
+        const out = [];
+        for (let r = row; r < row + (nRows || 1); r++) {
+          out.push((rows[r - 1] || []).slice(col - 1, col - 1 + (nCols || 1)));
+        }
+        return out;
+      },
       setValue: v => { rows[row - 1][col - 1] = v; },
       setValues: vals => {
         vals[0].forEach((v, i) => { rows[row - 1][col - 1 + i] = v; });
       },
+      createTextFinder: needle => ({
+        matchEntireCell: () => ({
+          findNext: () => {
+            for (let r = row; r < row + (nRows || 1); r++) {
+              if (rows[r - 1] && String(rows[r - 1][col - 1]) === String(needle)) {
+                return { getRow: () => r };
+              }
+            }
+            return null;
+          },
+        }),
+      }),
     }),
     getLastColumn: () => rows.length ? rows[0].length : 0,
+    getLastRow: () => rows.length,
+    deleteRow: n => { rows.splice(n - 1, 1); },
     setFrozenRows: () => {},
     _rows: rows,
   };

@@ -340,15 +340,31 @@ function result(p) {
    карта пересобирается из того, что уже записано. */
 function readResponse(column, value) {
   var sh = sheet(SHEET_RESPONSES);
-  var values = sh.getDataRange().getValues();
-  var head = values[0].map(function (h) { return String(h); });
+  var lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h); });
   var iKey = head.indexOf(column);
   if (iKey < 0) return null;
 
-  for (var i = 1; i < values.length; i++) {
-    if (String(values[i][iKey]) !== value) continue;
+  /* Ищем строку поиском по столбцу, а не вычитыванием всего листа: в таблице
+     лежат тексты ответов, и getDataRange на ней не укладывался в тайм-аут. */
+  var rowNum = -1;
+  try {
+    var hit = sh.getRange(2, iKey + 1, Math.max(1, sh.getLastRow() - 1), 1)
+                .createTextFinder(value).matchEntireCell(true).findNext();
+    if (hit) rowNum = hit.getRow();
+  } catch (e) { /* упадём в перебор ниже */ }
 
-    var row = values[i];
+  if (rowNum < 0) {
+    var col1 = sh.getRange(2, iKey + 1, Math.max(1, sh.getLastRow() - 1), 1).getValues();
+    for (var k = 0; k < col1.length; k++) {
+      if (String(col1[k][0]) === value) { rowNum = k + 2; break; }
+    }
+  }
+  if (rowNum < 0) return null;
+
+  var rows = [sh.getRange(rowNum, 1, 1, lastCol).getValues()[0]];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
     function col(name) {
       var c = head.indexOf(name);
       return c >= 0 ? row[c] : '';
