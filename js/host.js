@@ -85,6 +85,40 @@
     renderLevelTable(summary);
   }
 
+  /* Одна строка картины: навык, полоса из трёх долей группы, числа. */
+  function groupRow(sk, total) {
+    var row = document.createElement('div');
+    row.className = 'prow';
+
+    var name = document.createElement('span');
+    name.className = 'prow-name';
+    name.textContent = sk.name;
+    row.appendChild(name);
+
+    var buckets = sk.buckets || [0, 0, 0];
+    var track = document.createElement('span');
+    track.className = 'dist';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', sk.name + ': низ ' + buckets[0] +
+      ', середина ' + buckets[1] + ', верх ' + buckets[2]);
+    ['z1', 'z2', 'z3'].forEach(function (cls, i) {
+      var seg = document.createElement('i');
+      seg.className = cls;
+      seg.style.width = total ? (buckets[i] * 100 / total) + '%' : '0';
+      track.appendChild(seg);
+    });
+    row.appendChild(track);
+
+    var counts = document.createElement('span');
+    counts.className = 'prow-lag';
+    counts.textContent = total
+      ? buckets[0] + ' · ' + buckets[1] + ' · ' + buckets[2] + ' человек'
+      : 'пока никто не прошёл';
+    row.appendChild(counts);
+
+    return row;
+  }
+
   function renderZoneTable(summary) {
     var zb = $('zoneTable').querySelector('tbody');
     zb.innerHTML = '';
