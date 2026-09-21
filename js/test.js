@@ -219,8 +219,22 @@
 
   function renderSituation(focusOptId) {
     var s = currentSituation();
-    if (!state.shuffled[s.id]) {
-      state.shuffled[s.id] = shuffle(s.options.map(function (o) { return o.id; }));
+    var ids = s.options.map(function (o) { return o.id; });
+
+    /* Метка реплики меняется вместе с её текстом. Если человек начал тест,
+       а мы выложили правку, в его сохранённом прогоне лежат метки прежней
+       версии — по ним реплик уже не найти. Тогда порядок показа и расстановку
+       по этой ситуации собираем заново: иначе экран остаётся пустым, и человек
+       не понимает, что произошло. Поймано на своём же прогоне при переходе
+       с v2.1 на v2.3. */
+    var saved = state.shuffled[s.id] || [];
+    var fits = saved.length === ids.length && saved.every(function (id) {
+      return ids.indexOf(id) >= 0;
+    });
+    if (!fits) {
+      state.shuffled[s.id] = shuffle(ids);
+      state.order[s.id] = [];
+      save();
     }
     if (!state.order[s.id]) state.order[s.id] = [];
 
