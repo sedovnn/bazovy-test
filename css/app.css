@@ -101,10 +101,15 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
    Разъедутся — лого перестанет стоять по левому краю контента. Самый частый
    дефект в Искре, повторять не будем. */
 
+/* Боковые поля — ТОЛЬКО длинной записью. Классы экранов задают вертикальные
+   отступы своей сокращённой записью, и «padding: 28px 0 40px» затирал бы
+   боковые в ноль: на широком экране незаметно, на телефоне текст в край.
+   env() — под вырез и скруглённые углы: в <meta> стоит viewport-fit=cover. */
 .frame {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 0 var(--frame-pad);
+  padding-left: max(var(--frame-pad), env(safe-area-inset-left));
+  padding-right: max(var(--frame-pad), env(safe-area-inset-right));
 }
 
 .read { max-width: var(--w-read); }
@@ -125,7 +130,8 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .logo {
@@ -310,7 +316,7 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 /* ---------- блок А: расстановка тапами ---------- */
 
-.situation { padding: 28px 0 40px; }
+.situation { padding-top: 28px; padding-bottom: 40px; }
 
 .case {
   font-size: var(--fs-read);
@@ -439,7 +445,7 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 /* ---------- вход ---------- */
 
-.enter { padding: 48px 0 64px; }
+.enter { padding-top: 48px; padding-bottom: 64px; }
 
 .code-in {
   font-family: var(--ff-body);
@@ -472,7 +478,8 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 /* ---------- ожидание ---------- */
 
 .wait {
-  padding: 80px 0;
+  padding-top: 80px;
+  padding-bottom: 80px;
   max-width: var(--w-read);
 }
 
@@ -503,7 +510,7 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 /* ---------- карта участника ---------- */
 
-.map { padding: 32px 0 64px; }
+.map { padding-top: 32px; padding-bottom: 64px; }
 
 .skill {
   border-top: 1px solid var(--hairline);
@@ -724,10 +731,10 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 /* ---------- мобильный ---------- */
 
 @media (max-width: 600px) {
-  .hdr-in { padding: 12px 0; }
+  .hdr-in { padding-top: 12px; padding-bottom: 12px; }
   .logo { font-size: var(--fs-read); }
   .progress { top: 51px; }
-  .situation { padding: 20px 0 32px; }
+  .situation { padding-top: 20px; padding-bottom: 32px; }
   .opt { padding: 13px 14px; }
   .btn { width: 100%; }
   .nav-row .btn { width: auto; flex: 1; }
