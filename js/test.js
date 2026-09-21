@@ -658,9 +658,10 @@
       })
       .catch(function (err) {
         show('screenEnter');
-        $('enterErr').textContent = err.message === 'no_result'
-          ? 'Такой карты нет. Проверьте ссылку.'
-          : ('Не удалось открыть карту: ' + err.message);
+        $('enterErr').textContent =
+          err.message === 'no_result' ? 'Такой карты нет. Проверьте ссылку.' :
+          err.message === 'old_test' ? 'Эта карта от прежней версии теста — открыть её больше нельзя.' :
+          ('Не удалось открыть карту: ' + err.message);
         $('enterErr').classList.remove('hidden');
       });
   }

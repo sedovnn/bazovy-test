@@ -407,7 +407,11 @@ function readResponse(column, value) {
     return c >= 0 ? row[c] : '';
   }
 
-  var test = testById(String(col('test_id') || '')) || CONFIG.tests[0];
+  /* Строка от прежней версии теста: подставлять сегодняшний тест нельзя —
+     метки реплик другие, карта собралась бы из нулей и выглядела бы как
+     результат человека. Лучше честно сказать, что карты нет. */
+  var test = testById(String(col('test_id') || ''));
+  if (!test) return { ok: false, error: 'old_test' };
 
   var orderings = {};
   test.situations.forEach(function (sid) {
@@ -460,7 +464,11 @@ function rejudge(p) {
     return c >= 0 ? row[c] : '';
   }
 
-  var test = testById(String(col('test_id') || '')) || CONFIG.tests[0];
+  /* Строка от прежней версии теста: подставлять сегодняшний тест нельзя —
+     метки реплик другие, карта собралась бы из нулей и выглядела бы как
+     результат человека. Лучше честно сказать, что карты нет. */
+  var test = testById(String(col('test_id') || ''));
+  if (!test) return { ok: false, error: 'old_test' };
   var texts = test.free.map(function (q) { return String(col(q.id + '_text') || ''); });
   if (!texts.join('').trim()) return { ok: false, error: 'В строке нет свободных ответов' };
 
