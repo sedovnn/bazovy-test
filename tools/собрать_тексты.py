@@ -132,54 +132,59 @@ def from_js(path):
 
 
 def main():
-    data = json.loads(re.search(r'var TEST = (\{.*?\});\n',
-                                (ROOT / 'js' / 'data.js').read_text(encoding='utf-8'), re.S).group(1))
-
-    spec_name = next(iter((ROOT / 'spec').glob('базовый_тест_v*.md')), None)
-    spec_name = spec_name.name if spec_name else 'базовый_тест_v*.md'
+    setup = json.loads(re.search(r'var CONFIG = (\{.*?\});\n',
+                                 (ROOT / 'js' / 'config.js').read_text(encoding='utf-8'),
+                                 re.S).group(1))
+    tests = [json.loads((ROOT / t['file']).read_text(encoding='utf-8'))
+             for t in setup['tests']]
 
     L = []
     L.append('# Тексты теста — на вычитку\n')
-    L.append(f'Собрано скриптом `tools/собрать_тексты.py` из того, что сейчас на экране. '
-             f'Версия теста {data["version"]}.\n')
+    L.append('Собрано скриптом `tools/собрать_тексты.py` из того, что сейчас на экране. '
+             f'Правила версии {setup["rules"]}, тестов — {len(tests)}.\n')
     L.append('**Правки вносятся в двух разных местах, и это важно:**\n')
-    L.append(f'- **Часть 1 — содержание теста.** Источник истины `spec/{spec_name}` '
-             f'(приватный репозиторий). Правите там, потом `python3 tools/собрать_данные.py`. '
-             f'В коде эти тексты не редактируются — затрёт.\n')
+    L.append('- **Часть 1 — содержание тестов.** Источник истины — файлы `spec/тест_v*.md` '
+             '(приватный репозиторий). Правите там, потом `python3 tools/собрать_тесты.py`. '
+             'В коде эти тексты не редактируются — затрёт.\n')
     L.append('- **Часть 2 и дальше — формулировки интерфейса.** Их писал я, никем не вычитаны. '
              'Правятся прямо в коде, у каждой строки указан адрес.\n')
     L.append('\n---\n')
 
     # ---- часть 1: содержание ----
-    L.append('\n## Часть 1. Содержание теста — правится в spec/\n')
-    L.append('\n### Блок А — шесть ситуаций\n')
-    L.append('\nУчастник видит варианты в случайном порядке. Здесь они в порядке спеки: '
-             'сверху слабейший, снизу сильнейший.\n')
+    L.append('\n## Часть 1. Содержание тестов — правится в spec/\n')
 
-    for i, s in enumerate(data['blockA'], 1):
-        L.append(f'\n#### Ситуация {i} · {s["factor"]} — {s["title"]}\n')
-        L.append(f'\n**Кейс.** {s["caseText"]}\n')
-        L.append(f'\n**Вопрос.** {s["question"]}\n\n')
-        for o in s['options']:
-            L.append(f'- **{o["id"]}.** {o["text"]}\n')
+    for test in tests:
+        L.append(f'\n### Тест {test["id"]} — {test["name"]}\n')
+        L.append(f'\n**Вводная на экране.** {test["intro"]}\n')
+        L.append('\nУчастник видит реплики в случайном порядке и без букв. Здесь они '
+                 'в порядке спеки: сверху слабейшая, снизу сильнейшая.\n')
 
-    b = data['blockB']
-    L.append('\n### Блок Б — записка\n')
-    L.append(f'\n**Кейс.** {b["caseText"]}\n')
-    L.append(f'\n**Задание.** {b["task"]}\n')
-    L.append(f'\nПорог отправки — {b["minWords"]} слов, ориентир в задании — '
-             f'{b["targetFrom"]}–{b["targetTo"]}.\n')
+        free = {q['id']: q for q in test['free']}
+        for sit in test['situations']:
+            L.append(f'\n#### Ситуация {sit["num"]}\n')
+            for para in sit['post']:
+                L.append(f'\n{para}\n')
+            L.append(f'\n**Вопрос.** {sit["question"]}\n\n')
+            for o in sit['options']:
+                L.append(f'- {o["text"]}\n')
+            q = free.get(sit.get('free'))
+            if q:
+                L.append(f'\n**Свободный вопрос {q["num"]}** (появляется сразу после '
+                         f'расстановки). {q["text"]}\n')
 
     L.append('\n### Названия навыков и способностей\n\n')
-    for sk in data['skills']:
-        ab = f' · записка: {sk["ability"]}' if sk['ability'] else ' · записки нет'
+    for sk in setup['skills']:
+        ab = f' · свободный ответ: {sk["ability"]}' if sk['ability'] else ' · свободного ответа нет'
         L.append(f'- {sk["name"]}{ab}\n')
     L.append('\n')
-    for a in data['abilities']:
+    for a in setup['abilities']:
         L.append(f'- {a["id"]} — {a["name"]}\n')
     L.append('\n### Названия этапов\n\n')
-    for st in data['stages']:
-        L.append(f'- {st["name"]} (`{st["id"]}`)\n')
+    for st in setup['stages']:
+        bound = ('тест выбирает ведущий' if st['choose']
+                 else f'тест {st["test"]}')
+        L.append(f'- {st["name"]} (`{st["id"]}`) — {bound}\n')
+    L.append(f'\nПорог свободного ответа — {setup["minWords"]} слов.\n')
 
     # ---- часть 2: интерфейс ----
     L.append('\n---\n')

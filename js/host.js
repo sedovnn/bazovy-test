@@ -1,4 +1,5 @@
-/* Экран ведущего: создать сессию, показать код и QR, держать живой агрегат. */
+/* Экран ведущего: создать сессию, показать код и QR, держать живой агрегат,
+   свести «до» и «после» одной группы. */
 
 (function () {
   'use strict';
@@ -15,15 +16,55 @@
     return base + 'index.html?s=' + sessionCode;
   }
 
+  function stageById(id) {
+    return CONFIG.stages.filter(function (s) { return s.id === id; })[0] || null;
+  }
+
+  function stageName(id) {
+    var found = stageById(id);
+    return found ? found.name : (id || '—');
+  }
+
+  function testName(id) {
+    var found = CONFIG.tests.filter(function (t) { return t.id === id; })[0];
+    return found ? found.name : (id || '—');
+  }
+
+  /* ---- создание ---- */
+
   function fillStages() {
     var sel = $('stageInput');
-    TEST.stages.forEach(function (s) {
+    CONFIG.stages.forEach(function (s) {
       var o = document.createElement('option');
       o.value = s.id;
       o.textContent = s.name;
       sel.appendChild(o);
     });
+
+    var tests = $('testInput');
+    CONFIG.tests.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      tests.appendChild(o);
+    });
+
+    sel.addEventListener('change', syncStage);
+    syncStage();
   }
+
+  /* У «до» и «после» тест привязан жёстко: один и тот же тест дважды давать
+     нельзя. Выбор есть только у этапа без пары. */
+  function syncStage() {
+    var stage = stageById($('stageInput').value);
+    if (!stage) return;
+    $('testRow').classList.toggle('hidden', !stage.choose);
+    $('stageNote').textContent = stage.choose
+      ? 'Тест выбираете вы — берите любой из двух.'
+      : 'Тест для этого этапа задан: ' + testName(stage.test) + '.';
+  }
+
+  /* ---- живой экран ---- */
 
   function showLive(session) {
     code = session.code;
@@ -33,6 +74,7 @@
     $('liveCode').textContent = code;
     $('liveTitle').textContent = session.title || '';
     $('statStage').textContent = stageName(session.stage);
+    $('statTest').textContent = session.testId ? testName(session.testId) : '—';
 
     var link = testLink(code);
     $('liveLink').textContent = link;
@@ -47,25 +89,22 @@
     timer = setInterval(refresh, REFRESH_MS);
   }
 
-  function stageName(id) {
-    var found = TEST.stages.filter(function (s) { return s.id === id; })[0];
-    return found ? found.name : (id || '—');
-  }
-
   /* ---- агрегат ---- */
 
   function refresh() {
     $('refreshNote').textContent = 'обновляем…';
     API.summary(code).then(function (res) {
-      // при заходе по ссылке host.html?s=КОД название и этап приходят отсюда
+      // при заходе по ссылке host.html?s=КОД название, этап и тест приходят отсюда
       if (res.session) {
         if (res.session.title) $('liveTitle').textContent = res.session.title;
         if (res.session.stage) $('statStage').textContent = stageName(res.session.stage);
+        if (res.session.testId) $('statTest').textContent = testName(res.session.testId);
       }
       render(res.summary);
       var t = new Date();
       $('refreshNote').textContent = 'обновлено в ' +
         String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+      return refreshCompare();
     }).catch(function (err) {
       $('refreshNote').textContent = 'не обновилось: ' + err.message;
     });
@@ -111,8 +150,9 @@
 
     var counts = document.createElement('span');
     counts.className = 'prow-lag';
+    // три числа читаются вместе с легендой под картиной: низ · середина · верх
     counts.textContent = total
-      ? buckets[0] + ' · ' + buckets[1] + ' · ' + buckets[2] + ' человек'
+      ? buckets[0] + ' · ' + buckets[1] + ' · ' + buckets[2] + ' из ' + total
       : 'пока никто не прошёл';
     row.appendChild(counts);
 
@@ -135,7 +175,7 @@
     var lb = $('levelTable').querySelector('tbody');
     lb.innerHTML = '';
     summary.skills.filter(function (sk) { return sk.ability; }).forEach(function (sk) {
-      var ability = TEST.abilities.filter(function (a) { return a.id === sk.ability; })[0];
+      var ability = CONFIG.abilities.filter(function (a) { return a.id === sk.ability; })[0];
       var tr = document.createElement('tr');
       tr.appendChild(cell(sk.ability + ' · ' + (ability ? ability.name : sk.name)));
       var judged = 0;
@@ -147,6 +187,79 @@
       tr.appendChild(cell(missing > 0 ? String(missing) : '—'));
       lb.appendChild(tr);
     });
+  }
+
+  /* ---- сравнение «до/после» ----
+     Группа опознаётся по названию: ведущий заводит две сессии с одним
+     названием и разными этапами. Одна сессия — сравнивать нечего, блок скрыт. */
+
+  function refreshCompare() {
+    return API.compare(code).then(function (res) {
+      var list = (res.sessions || []).filter(function (s) { return s.summary.count > 0; });
+      if (list.length < 2) { $('compareBox').classList.add('hidden'); return; }
+
+      $('compareTitle').textContent = res.title || 'Сравнение по группе';
+      var box = $('compareCols');
+      box.innerHTML = '';
+      list.forEach(function (s) { box.appendChild(compareCard(s)); });
+      $('compareBox').classList.remove('hidden');
+    }).catch(function () {
+      // сравнение — не главная работа экрана: молча прячем, агрегат остаётся
+      $('compareBox').classList.add('hidden');
+    });
+  }
+
+  function compareCard(s) {
+    var card = document.createElement('div');
+
+    var head = document.createElement('p');
+    head.className = 'kicker';
+    head.textContent = stageName(s.stage) + ' · ' + testName(s.testId);
+    card.appendChild(head);
+
+    var count = document.createElement('p');
+    count.className = 'util';
+    count.style.margin = '0 0 8px';
+    count.textContent = s.summary.count + ' ' + peopleForm(s.summary.count) +
+                        ' · код ' + s.code;
+    card.appendChild(count);
+
+    s.summary.skills.forEach(function (sk) {
+      card.appendChild(meanRow(sk, s.summary.count));
+    });
+
+    return card;
+  }
+
+  /* В сравнении показываем среднее по группе одной полосой: две колонки
+     из трёхцветных распределений рядом не читаются. */
+  function meanRow(sk, total) {
+    var row = document.createElement('div');
+    row.className = 'prow';
+
+    var name = document.createElement('span');
+    name.className = 'prow-name';
+    name.textContent = sk.name;
+    row.appendChild(name);
+
+    var track = document.createElement('span');
+    track.className = 'ptrack';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', sk.name + ': ' + Math.round(sk.mean * 100) +
+      ' из 100 по общей шкале, среднее по группе');
+    var fill = document.createElement('i');
+    fill.style.width = Math.max(3, Math.round((sk.mean || 0) * 100)) + '%';
+    track.appendChild(fill);
+    row.appendChild(track);
+
+    return row;
+  }
+
+  function peopleForm(n) {
+    var t = n % 100, o = n % 10;
+    if (t >= 11 && t <= 14) return 'человек';
+    if (o >= 2 && o <= 4) return 'человека';
+    return 'человек';
   }
 
   function cell(text) {
@@ -168,18 +281,24 @@
     $('newForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var title = $('titleInput').value.trim();
-      var stage = $('stageInput').value;
+      var stage = stageById($('stageInput').value);
       var identify = $('identifyInput').value === 'да';
       if (!title) { $('titleInput').focus(); return; }
+
+      var testId = stage && stage.choose ? $('testInput').value : (stage ? stage.test : '');
 
       $('newBtn').disabled = true;
       $('newBtn').textContent = 'Создаём…';
       $('newErr').classList.add('hidden');
 
       API.ready()
-        .then(function () { return API.createSession(title, stage, identify); })
+        .then(function () {
+          return API.createSession({ title: title, stage: stage.id,
+                                     testId: testId, identify: identify });
+        })
         .then(function (res) {
-          showLive({ code: res.code, title: title, stage: stage });
+          showLive({ code: res.code, title: title, stage: stage.id,
+                     testId: res.testId || testId });
         })
         .catch(function (err) {
           $('newErr').textContent = 'Не получилось создать сессию: ' + err.message;
@@ -210,7 +329,7 @@
       var clean = entered.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
       if (clean.length === 6) {
         API.ready().then(function () {
-          showLive({ code: clean, title: '', stage: '' });
+          showLive({ code: clean, title: '', stage: '', testId: '' });
         });
       }
     });
@@ -220,7 +339,9 @@
     if (fromUrl) {
       var clean = fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
       if (clean.length === 6) {
-        API.ready().then(function () { showLive({ code: clean, title: '', stage: '' }); });
+        API.ready().then(function () {
+          showLive({ code: clean, title: '', stage: '', testId: '' });
+        });
       }
     }
   }

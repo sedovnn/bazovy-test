@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260921-1622" />
+<link rel="stylesheet" href="css/app.css?v=20260921-1808" />
 </head>
 <body class="op">
 
@@ -37,6 +37,13 @@
     <div class="op-row">
       <label class="op-label" for="stageInput">Этап</label>
       <select class="op-field" id="stageInput"></select>
+      <p class="util" style="margin:6px 0 0" id="stageNote"></p>
+    </div>
+    <!-- Виден только у этапа без пары: у «до» и «после» тест задан жёстко,
+         один и тот же тест дважды давать нельзя. -->
+    <div class="op-row hidden" id="testRow">
+      <label class="op-label" for="testInput">Какой тест показать</label>
+      <select class="op-field" id="testInput"></select>
     </div>
     <div class="op-row">
       <label class="op-label" for="identifyInput">Участники называют себя</label>
@@ -80,6 +87,7 @@
       <div class="stat-row">
         <span class="stat"><b id="statCount">0</b><span>прошли тест</span></span>
         <span class="stat"><b id="statStage">—</b><span>этап</span></span>
+        <span class="stat"><b id="statTest">—</b><span>тест</span></span>
       </div>
 
       <!-- Одна картина на все пять навыков и по той же шкале, что видит участник.
@@ -125,13 +133,23 @@
     </div>
 
   </div>
+
+  <!-- Сравнение «до/после». Появляется, когда у группы с тем же названием
+       есть больше одной сессии. -->
+  <div class="hidden" id="compareBox" style="margin-top:48px">
+    <p class="kicker">До и после</p>
+    <h2 class="op-h" id="compareTitle">Сравнение по группе</h2>
+    <p class="util" style="margin:0 0 20px">Сессии сводятся по названию группы. Шкала та же,
+      что на карте участника.</p>
+    <div class="cols cols-2" id="compareCols"></div>
+  </div>
 </section>
 
 </main>
 
-<script src="js/data.js?v=20260921-1622"></script>
-<script src="js/qr.js?v=20260921-1622"></script>
-<script src="js/api.js?v=20260921-1622"></script>
-<script src="js/host.js?v=20260921-1622"></script>
+<script src="js/config.js?v=20260921-1808"></script>
+<script src="js/qr.js?v=20260921-1808"></script>
+<script src="js/api.js?v=20260921-1808"></script>
+<script src="js/host.js?v=20260921-1808"></script>
 </body>
 </html>

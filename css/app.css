@@ -410,7 +410,18 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 .nav-note { font-size: var(--fs-util); color: var(--muted-soft); }
 
-/* ---------- блок Б: свободный ответ ---------- */
+/* ---------- свободный ответ ----------
+   Живёт внутри экрана ситуации, ниже реплик: человек отвечает, не уходя
+   из кейса, который только что прочитал. */
+
+/* Отбивка от реплик: понятно, что это уже другой род работы. */
+.free {
+  border-top: 1px solid var(--hairline);
+  padding-top: 24px;
+  margin: 0 0 4px;
+  max-width: var(--w-form);
+}
+
 
 .answer {
   width: 100%;
@@ -426,6 +437,10 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   padding: 16px;
   resize: vertical;
 }
+
+/* Ответ на 3 предложения: высокое поле просило бы написать больше,
+   чем спрашивают. */
+.answer-short { min-height: 150px; }
 
 .answer:focus { border-color: var(--muted-soft); }
 .answer::placeholder { color: var(--muted-soft); }

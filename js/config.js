@@ -3,79 +3,19 @@
    tools/собрать_тесты.py. Правится спека, потом скрипт. */
 
 var CONFIG = {
-  "rulesVersion": "1.0",
+  "rules": "1.0",
   "tests": [
     {
       "id": "v1.3",
       "name": "Nike · Starbucks · Novo",
-      "situations": [
-        "s1",
-        "s2",
-        "s3",
-        "s4",
-        "s5",
-        "s6"
-      ],
-      "factors": {
-        "s1": "АК-1",
-        "s2": "АК-2",
-        "s3": "ГА-2",
-        "s4": "ПР-2",
-        "s5": "МК-2",
-        "s6": "ПП-2"
-      },
-      "free": [
-        {
-          "id": "q1",
-          "abilities": [
-            "МК-1",
-            "ГА-1"
-          ]
-        },
-        {
-          "id": "q2",
-          "abilities": [
-            "ПП-1",
-            "ПР-1"
-          ]
-        }
-      ]
+      "file": "data/test_v1_3.json",
+      "v": "6b6a0df4"
     },
     {
       "id": "v2.1",
       "name": "Intel · bp · Stellantis",
-      "situations": [
-        "s1",
-        "s2",
-        "s3",
-        "s4",
-        "s5",
-        "s6"
-      ],
-      "factors": {
-        "s1": "АК-1",
-        "s2": "АК-2",
-        "s3": "ПР-2",
-        "s4": "ПП-2",
-        "s5": "ГА-2",
-        "s6": "МК-2"
-      },
-      "free": [
-        {
-          "id": "q1",
-          "abilities": [
-            "МК-1",
-            "ГА-1"
-          ]
-        },
-        {
-          "id": "q2",
-          "abilities": [
-            "ПП-1",
-            "ПР-1"
-          ]
-        }
-      ]
+      "file": "data/test_v2_1.json",
+      "v": "5ac01cb1"
     }
   ],
   "skills": [
@@ -166,3 +106,5 @@ var CONFIG = {
     }
   ]
 };
+
+if (typeof module !== 'undefined' && module.exports) { module.exports = CONFIG; }

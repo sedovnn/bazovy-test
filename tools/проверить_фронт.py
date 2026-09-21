@@ -16,8 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 PAGES = {
-    'index.html': ['js/data.js', 'js/api.js', 'js/test.js'],
-    'host.html': ['js/data.js', 'js/qr.js', 'js/api.js', 'js/host.js'],
+    'index.html': ['js/config.js', 'js/api.js', 'js/test.js'],
+    'host.html': ['js/config.js', 'js/qr.js', 'js/api.js', 'js/host.js'],
 }
 
 BROWSER = {
@@ -76,7 +76,7 @@ for page, scripts in PAGES.items():
 
     known = defined_names(combined) | BROWSER
     # глобальные из data.js / keys.js / scoring.js, подключаемых отдельно
-    known |= {'TEST', 'KEYS', 'QR', 'API', 'MOCK', 'buildMap', 'scoreSituation',
+    known |= {'CONFIG', 'KEYS', 'TESTMETA', 'QR', 'API', 'MOCK', 'buildMap', 'scoreSituation',
               'zoneIndex', 'combinedValue', 'valueBucket', 'BUCKET_NAMES', 'ZONE_NAMES'}
 
     print(f'\n{page}')

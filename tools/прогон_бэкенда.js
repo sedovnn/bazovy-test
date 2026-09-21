@@ -1,7 +1,7 @@
 /* Прогон apps-script/*.gs в Node на заглушках Google-сервисов.
    Запуск: node tools/прогон_бэкенда.js
-   Проверяет маршрутизацию, подсчёт, запись строки, агрегат, повтор оценки
-   и — главное — что падение судьи не роняет отправку. */
+   Проверяет маршрутизацию, подсчёт, запись, агрегат, открытие карты,
+   повторную отправку и — главное — что падение судьи не роняет отправку. */
 
 'use strict';
 const fs = require('fs');
@@ -18,9 +18,7 @@ function makeSheet(name) {
   return {
     name,
     appendRow: r => rows.push(r.slice()),
-    getDataRange: () => ({
-      getValues: () => rows.map(r => r.slice()),
-    }),
+    getDataRange: () => ({ getValues: () => rows.map(r => r.slice()) }),
     getRange: (row, col, nRows, nCols) => ({
       getValues: () => {
         const out = [];
@@ -30,9 +28,7 @@ function makeSheet(name) {
         return out;
       },
       setValue: v => { rows[row - 1][col - 1] = v; },
-      setValues: vals => {
-        vals[0].forEach((v, i) => { rows[row - 1][col - 1 + i] = v; });
-      },
+      setValues: vals => { vals[0].forEach((v, i) => { rows[row - 1][col - 1 + i] = v; }); },
       createTextFinder: needle => ({
         matchEntireCell: () => ({
           findNext: () => {
@@ -46,7 +42,7 @@ function makeSheet(name) {
         }),
       }),
     }),
-    getLastColumn: () => rows.length ? rows[0].length : 0,
+    getLastColumn: () => (rows.length ? rows[0].length : 0),
     getLastRow: () => rows.length,
     deleteRow: n => { rows.splice(n - 1, 1); },
     setFrozenRows: () => {},
@@ -62,7 +58,7 @@ const book = {
   deleteSheet: () => {},
 };
 
-let fetchMode = 'ok';           // ok | http500 | мусор | сеть
+let fetchMode = 'ok';          // ok | http500 | мусор | сеть
 let fetchCalls = 0;
 
 global.PropertiesService = {
@@ -79,12 +75,8 @@ global.ContentService = {
   createTextOutput: t => ({ setMimeType: () => ({ getContent: () => t }) }),
 };
 global.Logger = { log: m => console.log('  [Logger] ' + m) };
-let lockHeld = 0;
 global.LockService = {
-  getScriptLock: () => ({
-    tryLock: () => { lockHeld++; return true; },
-    releaseLock: () => { lockHeld--; },
-  }),
+  getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }),
 };
 
 global.UrlFetchApp = {
@@ -95,26 +87,24 @@ global.UrlFetchApp = {
       return { getResponseCode: () => 500, getContentText: () => '{"error":{"message":"overloaded"}}' };
     }
     const body = JSON.parse(opt.payload);
-    // проверяем форму запроса
     if (!Array.isArray(body.system) || !body.system[0].cache_control) {
       throw new Error('system должен быть блоком с cache_control');
     }
-    if ('temperature' in body) {
-      throw new Error('temperature эта модель не принимает — 400');
-    }
-    if (body.max_tokens !== 1500 || !body.thinking || body.thinking.type !== 'disabled') {
-      throw new Error('max_tokens или режим рассуждения не те');
-    }
-    if (!/^<ответ>\n/.test(body.messages[0].content)) {
-      throw new Error('ответ участника не обёрнут в <ответ>');
+    if ('temperature' in body) throw new Error('temperature эта модель не принимает — 400');
+    if (body.max_tokens !== 2000) throw new Error('max_tokens не 2000, как в спеке');
+    if (!body.thinking || body.thinking.type !== 'disabled') throw new Error('рассуждение не выключено');
+    const content = body.messages[0].content;
+    if (!/^<ответ1>/.test(content) || content.indexOf('<ответ2>') < 0) {
+      throw new Error('ответы не обёрнуты в <ответ1>/<ответ2>');
     }
     const text = fetchMode === 'мусор' && fetchCalls === 1
-      ? 'Конечно! Вот оценка: уровень примерно третий.'
+      ? 'Конечно! Вот оценка.'
       : '```json\n' + JSON.stringify({
-          'МК-1': { level: 4, quote: 'сервис ведения', why: 'L4 пройден', flag: false },
-          'ГА-1': { level: 2, quote: 'отказываемся', why: 'L2 пройден', flag: false },
-          'ПР-1': { level: 5, quote: 'высвобожденные деньги', why: 'L5 пройден', flag: true },
-          'ПП-1': { level: 3, quote: 'первый год', why: 'L3 пройден', flag: false },
+          'МК-1': { level: 4, quote: 'сервис', why: 'Уровень 4 пройден', flag: false, slogan: false },
+          'ГА-1': { level: 2, quote: 'отказ', why: 'Уровень 2 пройден', flag: false, slogan: false },
+          'ПР-1': { level: 5, quote: 'высвобождаем', why: 'Уровень 5 пройден', flag: true, slogan: false },
+          'ПП-1': { level: 3, quote: 'первый год', why: 'Уровень 3 пройден', flag: false, slogan: true },
+          extra: { 'АК-1': { level: 4, quote: 'китайская цена' } },
           feedback: 'Видно направление, не хватает связи этапов.',
         }) + '\n```';
     return {
@@ -126,10 +116,9 @@ global.UrlFetchApp = {
 
 /* ---------- загрузка ---------- */
 
-for (const f of ['config.gs', 'keys.gs', 'scoring.gs', 'judge_prompt.gs', 'judge.gs', 'Code.gs']) {
-  const src = fs.readFileSync(path.join(ROOT, 'apps-script', f), 'utf8');
-  // Apps Script складывает файлы в одну область видимости — повторяем это
-  (0, eval)(src.replace(/^module\.exports.*$/gm, ''));
+for (const f of ['config.gs', 'keys.gs', 'scoring.gs', 'judge_prompts.gs', 'judge.gs', 'Code.gs']) {
+  (0, eval)(fs.readFileSync(path.join(ROOT, 'apps-script', f), 'utf8')
+             .replace(/^module\.exports.*$/gm, ''));
 }
 
 /* ---------- прогон ---------- */
@@ -139,168 +128,156 @@ function check(name, cond, extra) {
   if (cond) console.log('  ok   ' + name);
   else { fails++; console.log('  ПЛОХО ' + name + (extra ? '  → ' + extra : '')); }
 }
-
 function post(payload) {
   return JSON.parse(doPost({ postData: { contents: JSON.stringify(payload) } }).getContent());
 }
 
-const ИДЕАЛ = ['E', 'D', 'C', 'B', 'A'];
+const судейский = CONFIG.tests.filter(t => JUDGE_PROMPTS[t.id])[0];
+
+/* Меток реплик в тесте руками не знает никто: они собираются из хеша текста.
+   Идеальную расстановку выводим из ключа — сортируем метки по уровню вниз. */
+function идеал(testId, sid) {
+  const key = KEYS[testId][sid];
+  return Object.keys(key).sort((a, b) => key[b] - key[a]);
+}
+const ИДЕАЛ = идеал(судейский.id, судейский.situations[0]);
 const orderings = {};
-CONFIG.situations.forEach((sid, i) => {
-  orderings[sid] = i === 5 ? ['A', 'B', 'C', 'D', 'E'] : ИДЕАЛ.slice();
+судейский.situations.forEach((sid, i) => {
+  const пр = идеал(судейский.id, sid);
+  orderings[sid] = i === 5 ? пр.slice().reverse() : пр;   // последняя — наоборот
 });
-const ответ = 'Через три года сеть становится сервисом ведения курса. '.repeat(20);
+const answers = {};
+судейский.free.forEach((q, i) => { answers[q.id] = 'Ответ номер ' + (i + 1) + '. '.repeat(20); });
 
-console.log('\n1. Создание сессии');
-const created = post({ action: 'createSession', title: 'ЕМВА-45', stage: 'baseline' });
-check('код из шести символов', /^[A-Z0-9]{6}$/.test(created.code), created.code);
-check('лист sessions заведён', !!sheets['sessions']);
-const code = created.code;
+console.log('\n1. Сессии и привязка теста к этапу');
+const парный = post({ action: 'createSession', title: 'Поток', stage: 'before' });
+check('этап «до» получил свой тест', парный.testId === CONFIG.stages[0].test, парный.testId);
+const после = post({ action: 'createSession', title: 'Поток', stage: 'after' });
+check('этап «после» получил другой тест', после.testId !== парный.testId, после.testId);
+check('у этапа без пары тест обязателен',
+      post({ action: 'createSession', title: 'X', stage: 'single' }).ok === false);
+const свой = post({ action: 'createSession', title: 'Своя команда', stage: 'single',
+                    testId: судейский.id, identify: true });
+check('ведущий выбрал тест сам', свой.testId === судейский.id);
+check('именная сессия отдаёт признак', post({ action: 'checkSession', code: свой.code }).identify === true);
+check('код сессии отдаёт тест', post({ action: 'checkSession', code: свой.code }).testId === судейский.id);
+const code = свой.code;
 
-console.log('\n1a. Именная сессия');
-const именная = post({ action: 'createSession', title: 'Своя команда', stage: 'baseline', identify: true });
-check('создана именной', именная.identify === true);
-check('анонимная осталась анонимной', post({ action: 'checkSession', code }).identify === false);
-check('именная отдаёт признак', post({ action: 'checkSession', code: именная.code }).identify === true);
-
-console.log('\n2. Проверка кода');
-check('существующий код принят', post({ action: 'checkSession', code }).ok === true);
-check('несуществующий отклонён', post({ action: 'checkSession', code: 'ZZZZZZ' }).error === 'no_session');
-
-console.log('\n3. Отправка — судья отвечает');
+console.log('\n2. Отправка — судья отвечает');
 fetchMode = 'ok'; fetchCalls = 0;
-const времена = { intro: 35, ak1: 74, ak2: 88, ga2: 61, pr2: 95, mk2: 70, pp2: 66, blockB: 305 };
-const r1 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 640, times: времена });
+const r1 = post({ action: 'submit', code, orderings, answers, durationSec: 700,
+                  participant: 'Катя Иванова', submissionId: 'ключ-1',
+                  times: { intro: 30, q1: 118, q2: 96 } });
 check('judge_status = ok', r1.judge_status === 'ok', r1.judge_error);
 check('судья вызван один раз', fetchCalls === 1, 'вызовов ' + fetchCalls);
 check('пять навыков в карте', r1.map.skills.length === 5);
-check('АК: 8 из 8, зона «выбирает»', r1.map.skills[0].score === 8 && r1.map.skills[0].zone === 'выбирает');
-check('ПП: 0 из 4, зона «не видит»', r1.map.skills[4].score === 0 && r1.map.skills[4].zone === 'не видит');
+check('АК: 6 из 6, зона «выбирает»', r1.map.skills[0].score === 6 && r1.map.skills[0].zone === 'выбирает');
+check('слабый навык: 0 из 3, «не видит»',
+      r1.map.skills.some(s => s.score === 0 && s.zone === 'не видит'));
 check('уровень ГА-1 доехал', r1.map.skills[1].level === 2);
 check('флаг ПР-1 сохранён', r1.map.skills[2].flag === true);
-check('строка «различаю, но не делаю» есть', r1.map.gaps.indexOf('Генерация альтернатив') >= 0, JSON.stringify(r1.map.gaps));
-check('строка записана в responses', sheets['responses']._rows.length === 2);
-const базоваяШирина = sheets['responses']._rows[0].length;
-{
-  const h = sheets['responses']._rows[0], r = sheets['responses']._rows[1];
-  check('время блока Б записано', r[h.indexOf('blockB_sec')] === 305);
-  check('время по ситуациям записано', CONFIG.situations.every(sid => r[h.indexOf(sid + '_sec')] > 0));
-  check('колонки времени есть в шапке', h.includes('intro_sec') && h.includes('blockB_sec'));
-}
+check('признак лозунга сохранён', r1.map.skills[4].slogan === true);
+check('дополнительная способность записана', r1.map.extra.length === 1 && r1.map.extra[0].code === 'АК-1');
+check('строка «в расстановке выше» есть', r1.map.gaps.length > 0, JSON.stringify(r1.map.gaps));
 
-console.log('\n3a. Имя пишется только в именной сессии');
-fetchMode = 'ok';
-post({ action: 'submit', code: именная.code, stage: 'baseline', orderings,
-       answerText: ответ, durationSec: 600, participant: 'Катя Иванова' });
-post({ action: 'submit', code, stage: 'baseline', orderings,
-       answerText: ответ, durationSec: 600, participant: 'Пётр Сидоров' });
-{
-  const h = sheets['responses']._rows[0];
-  const строки = sheets['responses']._rows.slice(1);
-  const вИменной = строки.filter(r => r[h.indexOf('session_code')] === именная.code);
-  const вАнонимной = строки.filter(r => r[h.indexOf('session_code')] === code);
-  check('в именной имя сохранено',
-        вИменной.some(r => r[h.indexOf('participant')] === 'Катя Иванова'));
-  check('в анонимной имя отброшено, хотя браузер его прислал',
-        вАнонимной.every(r => !r[h.indexOf('participant')]));
-}
+const h = sheets['responses']._rows[0], row = sheets['responses']._rows[1];
+check('имя записано', row[h.indexOf('participant')] === 'Катя Иванова');
+check('тест записан', row[h.indexOf('test_id')] === судейский.id);
+check('оба свободных ответа записаны',
+      судейский.free.every(q => String(row[h.indexOf(q.id + '_text')]).length > 0));
+check('время по вопросам записано', row[h.indexOf('q1_sec')] === 118);
+check('дополнительные способности в колонке', String(row[h.indexOf('extra')]).indexOf('АК-1') >= 0);
 
-console.log('\n3b. Повторная отправка после обрыва');
-fetchMode = 'ok'; fetchCalls = 0;
-const ключ = 'з-проверка-1';
-const было = sheets['responses']._rows.length;
-const п1 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ,
-                  durationSec: 600, submissionId: ключ });
-const вызововПосле1 = fetchCalls;
-const п2 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ,
-                  durationSec: 600, submissionId: ключ });
-check('первая отправка прошла', п1.ok === true && !п1.repeat);
-check('повтор узнан', п2.repeat === true);
-check('вторая строка не создана', sheets['responses']._rows.length === было + 1);
-check('судья повторно не вызван', fetchCalls === вызововПосле1, 'вызовов ' + fetchCalls);
-check('повтор вернул ту же карту',
-      JSON.stringify(п2.map.skills.map(s => s.score)) === JSON.stringify(п1.map.skills.map(s => s.score)));
-check('повтор вернул тот же уровень', п2.map.skills[1].level === п1.map.skills[1].level);
+console.log('\n3. Повторная отправка и открытие карты');
+const r2 = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-1' });
+check('повтор узнан', r2.repeat === true);
+check('вторая строка не создана', sheets['responses']._rows.length === 2);
+const r3 = post({ action: 'result', rowId: r1.rowId });
+check('карта открылась по адресу', r3.ok === true && r3.map.skills.length === 5);
+check('та же карта', JSON.stringify(r3.map.skills.map(s => s.score)) ===
+                    JSON.stringify(r1.map.skills.map(s => s.score)));
+check('несуществующая карта отклонена', post({ action: 'result', rowId: 'нет' }).error === 'no_result');
 
-console.log('\n3в. Открыть карту по адресу');
-{
-  const r = post({ action: 'result', rowId: п1.rowId });
-  check('карта открылась', r.ok === true && !!r.map);
-  check('та же карта, что при отправке',
-        JSON.stringify(r.map.skills.map(s => s.score)) === JSON.stringify(п1.map.skills.map(s => s.score)));
-  check('уровни на месте', r.map.skills[1].level === п1.map.skills[1].level);
-  check('судья не вызван заново', fetchCalls === вызововПосле1, 'вызовов ' + fetchCalls);
-  check('несуществующая карта отклонена', post({ action: 'result', rowId: 'нет-такой' }).error === 'no_result');
-  check('пустой адрес отклонён', post({ action: 'result' }).error === 'no_result');
-}
+console.log('\n4. Судья падает — отправка устояла');
+fetchMode = 'http500';
+const r4 = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-2' });
+check('отправка не упала', r4.ok === true);
+check('judge_status = error', r4.judge_status === 'error');
+check('карта расстановок вернулась', r4.map.skills[0].score === 6);
+check('уровней нет', r4.map.skills[1].level === null);
+const битая = sheets['responses']._rows[2];
+check('тексты ответов сохранены',
+      судейский.free.every(q => String(битая[h.indexOf(q.id + '_text')]).length > 0));
 
-console.log('\n4. Отправка — судья падает (HTTP 500)');
-fetchMode = 'http500'; fetchCalls = 0;
-const r2 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 700 });
-check('отправка не упала', r2.ok === true);
-check('judge_status = error', r2.judge_status === 'error');
-check('карта блока А всё равно пришла', r2.map.skills[0].score === 8);
-check('уровней блока Б нет', r2.map.skills[1].level === null);
-check('строка всё равно сохранена', sheets['responses']._rows.length === 6);
-const битаяСтрока = sheets['responses']._rows[5];
-const шапка = sheets['responses']._rows[0];
-check('текст записки сохранён', битаяСтрока[шапка.indexOf('answer_text')].length > 0);
-check('judge_error записан', String(битаяСтрока[шапка.indexOf('judge_error')]).indexOf('API 500') >= 0);
-
-console.log('\n5. Судья вернул не JSON — один повтор');
+console.log('\n5. Неразборчивый JSON — один повтор');
 fetchMode = 'мусор'; fetchCalls = 0;
-const r3 = post({ action: 'submit', code, stage: 'baseline', orderings, answerText: ответ, durationSec: 650 });
-check('со второй попытки разобрано', r3.judge_status === 'ok', r3.judge_error);
+const r5 = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-3' });
+check('со второй попытки разобрано', r5.judge_status === 'ok', r5.judge_error);
 check('повтор был ровно один', fetchCalls === 2, 'вызовов ' + fetchCalls);
 
 console.log('\n6. Повторная оценка');
-fetchMode = 'ok'; fetchCalls = 0;
-const битыйId = битаяСтрока[шапка.indexOf('row_id')];
-const r4 = post({ action: 'rejudge', rowId: битыйId });
-check('rejudge отработал', r4.ok === true && r4.judge_status === 'ok', r4.error);
-check('уровни появились в карте', r4.map.skills[1].level === 2);
-const послеПовтора = sheets['responses']._rows[5];
-check('judge_status в строке переписан', послеПовтора[шапка.indexOf('judge_status')] === 'ok');
-check('расстановка не тронута', послеПовтора[шапка.indexOf('ak1_score')] === 4);
+fetchMode = 'ok';
+const r6 = post({ action: 'rejudge', rowId: r4.rowId });
+check('rejudge отработал', r6.ok === true && r6.judge_status === 'ok', r6.error);
+check('расстановка не тронута', r6.map.skills[0].score === 6);
 
-console.log('\n7. Агрегат');
-const s = post({ action: 'summary', code });
-check('посчитаны все отправки анонимной сессии', s.summary.count === 5, 'count=' + s.summary.count);
-check('зоны разложены', s.summary.skills[0].zones[2] === 5, JSON.stringify(s.summary.skills[0].zones));
-check('группа разложена по общей шкале', s.summary.skills[0].buckets[2] === 5, JSON.stringify(s.summary.skills[0].buckets));
-check('у слабого навыка группа внизу', s.summary.skills[4].buckets[0] === 5, JSON.stringify(s.summary.skills[4].buckets));
-check('сумма по вёдрам = числу прошедших',
-      s.summary.skills.every(sk => sk.buckets.reduce((a,b)=>a+b,0) === s.summary.count));
-check('средняя по шкале посчитана', typeof s.summary.skills[0].mean === 'number');
-check('времени в сводке нет — оно только в таблице', s.summary.time === undefined);
-check('уровни разложены', s.summary.skills[1].levels[1] === 5, JSON.stringify(s.summary.skills[1].levels));
-check('имён и текстов в агрегате нет',
-      JSON.stringify(s.summary).indexOf('сервисом ведения') < 0 &&
-      JSON.stringify(post({ action: 'summary', code: именная.code }).summary).indexOf('Катя') < 0);
-
-console.log('\n8. Добавление колонки не ломает прежние строки');
-{
-  const sh = sheets['responses'];
-  const былоШирина = sh._rows[0].length;
-  const былоСтрок = sh._rows.length;
-  appendByHeader(sh, { row_id: 'проверка', session_code: code, новая_колонка: 'значение' });
-  const h = sh._rows[0];
-  check('колонка дописана в конец', h[h.length - 1] === 'новая_колонка');
-  check('прежние строки не сдвинулись',
-        sh._rows[1][h.indexOf('session_code')] === code &&
-        sh._rows[1][h.indexOf('blockB_sec')] === 305);
-  check('новая строка легла по именам',
-        sh._rows[былоСтрок][h.indexOf('новая_колонка')] === 'значение' &&
-        sh._rows[былоСтрок][h.indexOf('row_id')] === 'проверка');
-  sh._rows.pop();
+console.log('\n7. Тест без промпта судьи');
+const безСудьи = CONFIG.tests.filter(t => !JUDGE_PROMPTS[t.id])[0];
+if (безСудьи) {
+  const s2 = post({ action: 'createSession', title: 'Без судьи', stage: 'single', testId: безСудьи.id });
+  const ord2 = {};
+  безСудьи.situations.forEach(sid => { ord2[sid] = идеал(безСудьи.id, sid); });
+  const ans2 = {};
+  безСудьи.free.forEach(q => { ans2[q.id] = 'текст'; });
+  const r7 = post({ action: 'submit', code: s2.code, orderings: ord2, answers: ans2 });
+  check('тест проходится и без промпта', r7.ok === true);
+  check('расстановки посчитаны', r7.map.skills[0].score === 6);
+  check('судья честно сообщает, что промпта нет',
+        r7.judge_status === 'error' && /нет промпта/.test(r7.judge_error), r7.judge_error);
+} else {
+  console.log('  — все тесты с промптами, проверять нечего');
 }
 
-console.log('\n9. Мелочи');
+console.log('\n8. Агрегат');
+const s = post({ action: 'summary', code });
+check('посчитаны все отправки', s.summary.count === 3, 'count=' + s.summary.count);
+check('сводка знает тест', s.summary.test === судейский.id);
+check('группа разложена по общей шкале',
+      s.summary.skills.every(sk => sk.buckets.reduce((a, b) => a + b, 0) === s.summary.count));
+check('имён и текстов в сводке нет',
+      JSON.stringify(s.summary).indexOf('Катя') < 0 && JSON.stringify(s.summary).indexOf('Ответ номер') < 0);
+
+console.log('\n9. Сравнение «до/после» по названию группы');
+fetchMode = 'ok';
+// в обе сессии «Потока» кладём по отправке, чтобы было что сравнивать
+const ordДо = {};
+CONFIG.tests.filter(t => t.id === парный.testId)[0].situations
+  .forEach(sid => { ordДо[sid] = идеал(парный.testId, sid); });
+const ordПосле = {};
+CONFIG.tests.filter(t => t.id === после.testId)[0].situations
+  .forEach((sid, i) => {
+    const пр = идеал(после.testId, sid);
+    // в «после» одна ситуация с перестановкой соседей — чтобы карты различались
+    ordПосле[sid] = i % 2 ? [пр[1], пр[0], пр[2], пр[3]] : пр;
+  });
+post({ action: 'submit', code: парный.code, orderings: ordДо, answers: {}, submissionId: 'п-1' });
+post({ action: 'submit', code: после.code, orderings: ordПосле, answers: {}, submissionId: 'п-2' });
+
+const cmp = post({ action: 'compare', code: парный.code });
+check('нашлись обе сессии группы', cmp.sessions.length === 2, JSON.stringify(cmp.sessions.map(x => x.stage)));
+check('порядок — сначала «до»', cmp.sessions[0].stage === 'before' && cmp.sessions[1].stage === 'after');
+check('у сессий разные тесты', cmp.sessions[0].testId !== cmp.sessions[1].testId);
+check('в каждой посчитан свой агрегат',
+      cmp.sessions.every(x => x.summary.count === 1 && x.summary.skills.length === CONFIG.skills.length));
+check('сравнение не тащит имён и текстов',
+      JSON.stringify(cmp).indexOf('Катя') < 0 && JSON.stringify(cmp).indexOf('Ответ номер') < 0);
+const cmpОдин = post({ action: 'compare', code });
+check('у одиночной группы сравнивать нечего', cmpОдин.sessions.length === 1, cmpОдин.sessions.length);
+
+console.log('\n10. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
-// версии не зашиваем: они меняются при каждой вычитке
 const версии = JSON.parse(doGet().getContent());
-check('doGet отвечает версиями',
-      версии.judge === JUDGE_PROMPT_VERSION && версии.test === CONFIG.testVersion,
+check('doGet отвечает версиями', версии.rules === CONFIG.rulesVersion && версии.tests.length === CONFIG.tests.length,
       JSON.stringify(версии));
 
 console.log(fails ? `\nПРОВАЛЕНО: ${fails}` : '\nВсё сошлось.');

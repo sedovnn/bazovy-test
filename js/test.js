@@ -1,24 +1,32 @@
-/* Экраны участника: вход → блок А → блок Б → ожидание → карта. */
+/* Экраны участника: вход → 6 ситуаций → ожидание → карта.
+
+   Свободные вопросы живут внутри ситуаций 5 и 6, отдельного экрана у них нет:
+   человек отвечает, не выходя из кейса, который только что прочитал.
+
+   Тексты теста подгружаются по коду сессии (data/test_*.json) — в браузер
+   уезжает только тот тест, который человек и проходит. */
 
 (function () {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
 
-  var TOTAL = TEST.blockA.length + 1;      // шесть ситуаций + блок Б
-  var STORE = 'bt_progress_v1';
+  var STORE = 'bt_progress_v2';
   /* Адрес своей карты: живёт дольше вкладки, поэтому localStorage, а не
      sessionStorage. Ключ — код сессии: у одного человека могут быть разные
      прогоны на разных этапах. */
   var RESULTS = 'bt_results_v1';
 
+  var TEST = null;          // содержимое data/test_*.json, приходит после входа
+
   var state = {
     code: '',
-    stage: 'baseline',
-    step: 0,            // 0..5 — ситуации, 6 — блок Б
-    order: {},          // id ситуации → массив id вариантов в порядке расстановки
-    shuffled: {},       // id ситуации → порядок показа вариантов
-    answer: '',
+    stage: '',
+    testId: '',
+    step: 0,            // индекс ситуации, 0…5
+    order: {},          // id ситуации → id реплик в порядке расстановки
+    shuffled: {},       // id ситуации → порядок показа реплик
+    answers: {},        // q1 / q2 → текст
     participant: '',
     identify: false,
     /* Ключ отправки. Если сеть оборвалась и человек жмёт «Отправить» снова,
@@ -30,6 +38,7 @@
        время добавляется, а не перезаписывается. Нужно, чтобы понять, укладывается
        ли тест в обещанные пятнадцать минут и где именно уходит время. */
     times: {},
+    openStep: null,
     stepAt: 0
   };
 
@@ -60,13 +69,20 @@
     return (text || '').trim().split(/\s+/).filter(Boolean).length;
   }
 
+  function wordForm(n) {
+    var t = n % 100, o = n % 10;
+    if (t >= 11 && t <= 14) return 'слов';
+    if (o === 1) return 'слово';
+    if (o >= 2 && o <= 4) return 'слова';
+    return 'слов';
+  }
+
   function show(id) {
-    var screens = ['screenEnter', 'screenIntro', 'screenA', 'screenB', 'screenWait', 'screenMap'];
+    var screens = ['screenEnter', 'screenIntro', 'screenA', 'screenWait', 'screenMap'];
     for (var i = 0; i < screens.length; i++) {
       $(screens[i]).classList.toggle('hidden', screens[i] !== id);
     }
-    var inTest = (id === 'screenA' || id === 'screenB');
-    $('progress').classList.toggle('hidden', !inTest);
+    $('progress').classList.toggle('hidden', id !== 'screenA');
     window.scrollTo(0, 0);
   }
 
@@ -79,23 +95,36 @@
       var raw = sessionStorage.getItem(STORE);
       if (!raw) return false;
       var s = JSON.parse(raw);
-      if (!s || !s.code) return false;
+      if (!s || !s.code || !s.testId) return false;
       state = s;
       return true;
     } catch (e) { return false; }
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function list(items) {
+    if (!items.length) return '';
+    if (items.length === 1) return items[0];
+    return items.slice(0, -1).join(', ') + ' и ' + items[items.length - 1];
+  }
+
   /* ---------- прогресс ---------- */
 
   function renderProgress() {
+    var total = TEST.situations.length;
     var seg = $('progressSeg');
     seg.innerHTML = '';
-    for (var i = 0; i < TOTAL; i++) {
+    for (var i = 0; i < total; i++) {
       var el = document.createElement('i');
       el.className = 'seg' + (i < state.step ? ' is-done' : i === state.step ? ' is-now' : '');
       seg.appendChild(el);
     }
-    $('progressNum').textContent = (state.step + 1) + ' / ' + TOTAL;
+    $('progressNum').textContent = (state.step + 1) + ' / ' + total;
   }
 
   /* ---------- вход ---------- */
@@ -109,6 +138,12 @@
     input.addEventListener('input', function () {
       input.value = normalize(input.value);
       btn.disabled = input.value.length !== 6;
+
+      var known = input.value.length === 6 ? recallResult(input.value) : '';
+      $('againBox').classList.toggle('hidden', !known);
+      if (known) {
+        $('againLink').onclick = function (e) { e.preventDefault(); openResult(known); };
+      }
     });
 
     $('enterForm').addEventListener('submit', function (e) {
@@ -123,18 +158,18 @@
         .then(function () { return API.call('checkSession', { code: code }); })
         .then(function (res) {
           state.code = code;
-          state.stage = res.stage || 'baseline';
+          state.stage = res.stage || '';
+          state.testId = res.testId || '';
           state.identify = res.identify === true;
           state.startedAt = Date.now();
           state.submissionId = 'з' + Date.now().toString(36) + '-' +
                                Math.random().toString(36).slice(2, 10);
+          return API.loadTest(state.testId);
+        })
+        .then(function (test) {
+          TEST = test;
           markStep('intro');
-          $('nameBox').classList.toggle('hidden', !state.identify);
-          if (state.identify) {
-            $('nameInput').value = state.participant || '';
-            $('introBtn').disabled = !$('nameInput').value.trim();
-          }
-          show('screenIntro');
+          showIntro();
         })
         .catch(function (err) {
           $('enterErr').textContent = err.message === 'no_session'
@@ -148,15 +183,6 @@
         });
     });
 
-    $('codeInput').addEventListener('input', function () {
-      var typed = $('codeInput').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      var known = typed.length === 6 ? recallResult(typed) : '';
-      $('againBox').classList.toggle('hidden', !known);
-      if (known) {
-        $('againLink').onclick = function (e) { e.preventDefault(); openResult(known); };
-      }
-    });
-
     // код из ссылки: index.html?s=КОД
     var fromUrl = new URLSearchParams(location.search).get('s');
     if (fromUrl) {
@@ -166,9 +192,30 @@
     }
   }
 
-  /* ---------- блок А ---------- */
+  function showIntro() {
+    $('introText').textContent = TEST.intro;
+    $('nameBox').classList.toggle('hidden', !state.identify);
+    if (state.identify) {
+      $('nameInput').value = state.participant || '';
+      $('introBtn').disabled = !$('nameInput').value.trim();
+    }
+    show('screenIntro');
+  }
 
-  function currentSituation() { return TEST.blockA[state.step]; }
+  /* ---------- ситуация ---------- */
+
+  function currentSituation() { return TEST.situations[state.step]; }
+
+  function freeOf(situation) {
+    if (!situation.free) return null;
+    for (var i = 0; i < TEST.free.length; i++) {
+      if (TEST.free[i].id === situation.free) return TEST.free[i];
+    }
+    return null;
+  }
+
+  function ranked(situation) { return (state.order[situation.id] || []).length; }
+  function rankingDone(situation) { return ranked(situation) === situation.options.length; }
 
   function renderSituation(focusOptId) {
     var s = currentSituation();
@@ -177,13 +224,25 @@
     }
     if (!state.order[s.id]) state.order[s.id] = [];
 
-    $('aFactor').textContent = 'Ситуация ' + (state.step + 1) + ' из ' + TEST.blockA.length;
-    $('aCase').textContent = s.caseText;
+    $('aFactor').textContent = 'Ситуация ' + (state.step + 1) + ' из ' + TEST.situations.length;
+
+    // пост — абзацами, как в спеке
+    var post = $('aCase');
+    post.innerHTML = '';
+    s.post.forEach(function (para) {
+      var p = document.createElement('p');
+      p.style.margin = '0 0 12px';
+      p.textContent = para;
+      post.appendChild(p);
+    });
+
     $('aQuestion').textContent = s.question;
 
-    var list = $('aOptions');
-    list.innerHTML = '';
+    var box = $('aOptions');
+    box.innerHTML = '';
 
+    /* Реплики — комментарии: без букв и без нумерации, порядок перемешан.
+       Номер на плитке появляется только тот, который ставит сам человек. */
     state.shuffled[s.id].forEach(function (optId) {
       var opt = s.options.filter(function (o) { return o.id === optId; })[0];
       var rank = state.order[s.id].indexOf(optId);
@@ -206,7 +265,9 @@
       if (rank >= 0) {
         var note = document.createElement('span');
         note.className = 'opt-note';
-        note.textContent = rank === 0 ? 'лучший' : 'место ' + (rank + 1) + ' — нажмите ещё раз, чтобы снять';
+        note.textContent = rank === 0
+          ? 'подписались бы'
+          : 'место ' + (rank + 1) + ' — нажмите ещё раз, чтобы снять';
         text.appendChild(note);
       }
 
@@ -216,24 +277,74 @@
       btn.addEventListener('click', function () { tap(s.id, optId); });
 
       li.appendChild(btn);
-      list.appendChild(li);
+      box.appendChild(li);
     });
 
-    var done = state.order[s.id].length === s.options.length;
-    $('aNext').disabled = !done;
-    $('aNote').textContent = done
-      ? 'Все пять расставлены'
-      : 'Расставлено ' + state.order[s.id].length + ' из ' + s.options.length;
-    $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
+    renderFree(s);
+    updateNav();
 
-    // после перерисовки возвращаем фокус на нажатый вариант: иначе клавиатура
+    // после перерисовки возвращаем фокус на нажатую реплику: иначе клавиатура
     // после каждого выбора откатывается в начало списка
     if (focusOptId) {
-      var back = list.querySelector('[data-opt="' + focusOptId + '"]');
+      var back = box.querySelector('[data-opt="' + focusOptId + '"]');
       if (back) back.focus();
     }
 
     renderProgress();
+  }
+
+  /* Свободный вопрос появляется, когда расстановка собрана целиком —
+     так задано правилами: «сразу после расстановки». */
+  function renderFree(s) {
+    var q = freeOf(s);
+    var openNow = !!q && rankingDone(s);
+    var wasHidden = $('aFree').classList.contains('hidden');
+
+    $('aFree').classList.toggle('hidden', !openNow);
+    if (!openNow) return;
+
+    $('aFreeQ').textContent = q.text;
+    if ($('aFreeText').value !== (state.answers[q.id] || '')) {
+      $('aFreeText').value = state.answers[q.id] || '';
+    }
+    updateCount(q);
+
+    if (wasHidden) {
+      // вопрос только что появился — время идёт уже ему, а не расстановке
+      if (state.openStep !== q.id) markStep(q.id);
+      $('aFree').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function updateCount(q) {
+    var n = countWords($('aFreeText').value);
+    var ok = n >= CONFIG.minWords;
+    $('aFreeCount').innerHTML = '<b>' + n + '</b> ' + wordForm(n);
+    $('aFreeCount').classList.toggle('is-ok', ok);
+    $('aFreeTarget').textContent = ok ? 'Достаточно, можно дальше.'
+                                      : 'Минимум ' + CONFIG.minWords + ' слов.';
+  }
+
+  /* Что сейчас мешает нажать «Дальше» — одной фразой под кнопкой. */
+  function updateNav() {
+    var s = currentSituation();
+    var q = freeOf(s);
+    var last = state.step === TEST.situations.length - 1;
+    var words = q ? countWords(state.answers[q.id] || '') : 0;
+
+    var ready = rankingDone(s) && (!q || words >= CONFIG.minWords);
+
+    $('aNext').disabled = !ready;
+    $('aNext').textContent = last ? 'Отправить' : 'Дальше';
+    $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
+
+    if (!rankingDone(s)) {
+      $('aNote').textContent = 'Расставлено ' + ranked(s) + ' из ' + s.options.length;
+    } else if (q && words < CONFIG.minWords) {
+      $('aNote').textContent = 'Осталось написать ответ — минимум ' + CONFIG.minWords + ' слов';
+    } else {
+      $('aNote').textContent = last ? 'Готово — можно отправлять' : '';
+    }
   }
 
   function tap(situationId, optId) {
@@ -245,83 +356,46 @@
     renderSituation(optId);
   }
 
-  function initBlockA() {
-    $('aNext').addEventListener('click', function () {
-      state.step++;
+  function goTo(step) {
+    state.step = step;
+    save();
+    var s = currentSituation();
+    var q = freeOf(s);
+    // возвращаемся в ситуацию с готовой расстановкой — время идёт вопросу
+    markStep(q && rankingDone(s) ? q.id : s.id);
+    show('screenA');
+    renderSituation();
+  }
+
+  function initSituation() {
+    $('aFreeText').addEventListener('input', function () {
+      var q = freeOf(currentSituation());
+      if (!q) return;
+      state.answers[q.id] = $('aFreeText').value;
       save();
-      if (state.step < TEST.blockA.length) {
-        markStep(TEST.blockA[state.step].id);
-        show('screenA'); renderSituation();
-      } else {
-        markStep('blockB');
-        show('screenB'); renderBlockB();
-      }
+      updateCount(q);
+      updateNav();
+    });
+
+    $('aNext').addEventListener('click', function () {
+      if (state.step < TEST.situations.length - 1) goTo(state.step + 1);
+      else submit();
     });
 
     $('aBack').addEventListener('click', function () {
-      if (state.step === 0) { markStep('intro'); show('screenIntro'); return; }
-      state.step--;
-      save();
-      markStep(TEST.blockA[state.step].id);
-      show('screenA');
-      renderSituation();
+      if (state.step === 0) { markStep('intro'); showIntro(); return; }
+      goTo(state.step - 1);
     });
-  }
-
-  /* ---------- блок Б ---------- */
-
-  function renderBlockB() {
-    $('bCase').textContent = TEST.blockB.caseText;
-    $('bTask').textContent = TEST.blockB.task;
-    $('bTarget').textContent = 'Ориентир — ' + TEST.blockB.targetFrom + '–' + TEST.blockB.targetTo +
-                               ' слов, отправка открывается со ' + TEST.blockB.minWords + '.';
-    $('bAnswer').value = state.answer || '';
-    updateCount();
-    renderProgress();
-  }
-
-  function updateCount() {
-    var n = countWords($('bAnswer').value);
-    var ok = n >= TEST.blockB.minWords;
-    $('bCount').innerHTML = '<b>' + n + '</b> ' + wordForm(n);
-    $('bCount').classList.toggle('is-ok', ok);
-    $('bSend').disabled = !ok;
-  }
-
-  function wordForm(n) {
-    var t = n % 100, o = n % 10;
-    if (t >= 11 && t <= 14) return 'слов';
-    if (o === 1) return 'слово';
-    if (o >= 2 && o <= 4) return 'слова';
-    return 'слов';
-  }
-
-  function initBlockB() {
-    $('bAnswer').addEventListener('input', function () {
-      state.answer = $('bAnswer').value;
-      save();
-      updateCount();
-    });
-
-    $('bBack').addEventListener('click', function () {
-      state.step = TEST.blockA.length - 1;
-      save();
-      markStep(TEST.blockA[state.step].id);
-      show('screenA');
-      renderSituation();
-    });
-
-    $('bSend').addEventListener('click', submit);
   }
 
   /* ---------- отправка ---------- */
 
   function submit() {
-    markStep(null);   // закрываем блок Б
-    $('bErr').classList.add('hidden');
+    markStep(null);
+    $('aErr').classList.add('hidden');
     show('screenWait');
 
-    var notes = ['Считаем расстановку…', 'Читаем записку…', 'Собираем карту…'];
+    var notes = ['Считаем расстановки…', 'Читаем ваши ответы…', 'Собираем карту…'];
     var i = 0;
     var tick = setInterval(function () {
       i = (i + 1) % notes.length;
@@ -331,8 +405,9 @@
     API.submit({
       code: state.code,
       stage: state.stage,
+      testId: state.testId,
       orderings: state.order,
-      answerText: state.answer,
+      answers: state.answers,
       participant: state.participant,
       submissionId: state.submissionId,
       durationSec: Math.round((Date.now() - state.startedAt) / 1000),
@@ -346,10 +421,11 @@
       show('screenMap');
     }).catch(function (err) {
       clearInterval(tick);
-      show('screenB');
-      $('bErr').textContent = 'Не удалось отправить — ' + err.message +
-        '. Ваш ответ сохранён, нажмите «Отправить» ещё раз. Повторная отправка не создаст дубль.';
-      $('bErr').classList.remove('hidden');
+      show('screenA');
+      renderSituation();
+      $('aErr').textContent = 'Не удалось отправить — ' + err.message +
+        '. Ваши ответы сохранены, нажмите «Отправить» ещё раз. Повторная отправка не создаст дубль.';
+      $('aErr').classList.remove('hidden');
     });
   }
 
@@ -359,29 +435,27 @@
 
   /* Сводит навык к одному положению 0…1 на общей шкале.
 
-     ⚠ ЭТО ОГРУБЛЕНИЕ, И ОНО МОЁ. Спека даёт по навыку разные величины: у
-     Анализа контекста расстановка по двум ситуациям (0–8), у остальных по одной
-     (0–4), и у четырёх сверх того уровень записки L1–L5. Общей шкалы спека не
-     задаёт. Здесь обе части нормируются в 0…1 и усредняются с равным весом, у
-     Анализа контекста часть одна. Тест пятнадцатиминутный, картина заведомо
+     ⚠ ЭТО ОГРУБЛЕНИЕ, И ОНО МОЁ. Правила дают по навыку разные величины: у
+     Анализа контекста расстановка по двум ситуациям (0–6), у остальных по одной
+     (0–3), и у четырёх сверх того уровень свободного ответа L1–L5. Общей шкалы
+     правила не задают. Здесь обе части нормируются в 0…1 и усредняются с равным
+     весом, у Анализа контекста часть одна. Тест короткий, картина заведомо
      приблизительная — вес и способ сведения правятся здесь, одним местом. */
   function combined(sk) {
-    var parts = [sk.score / sk.max];
+    var parts = [sk.max ? sk.score / sk.max : 0];
     if (sk.level) parts.push((sk.level - 1) / 4);
     var sum = 0;
     for (var i = 0; i < parts.length; i++) sum += parts[i];
     return sum / parts.length;
   }
 
-  /* Уровень записки на общей шкале ниже расстановки — значит, различает лучше,
-     чем делает. Приписка под полосой. */
-  function lagging(sk) {
-    return !!sk.level && ((sk.level - 1) / 4) < (sk.score / sk.max);
-  }
-
   function renderMap(res) {
+    /* Строку сравнения считает бэкенд по правилам: зона «выбирает» и уровень
+       свободного ответа не выше 2. Фронт только показывает. */
+    var gaps = res.map.gaps || [];
+
     var rows = res.map.skills.map(function (sk) {
-      return { name: sk.name, value: combined(sk), lag: lagging(sk), raw: sk };
+      return { name: sk.name, value: combined(sk), lag: gaps.indexOf(sk.name) >= 0, raw: sk };
     });
 
     $('mapLead').textContent = leadText(rows);
@@ -397,15 +471,15 @@
       'а не точное значение.';
     box.appendChild(note);
 
-    // «различаю, но не делаю» — вывод поперёк строк, поэтому отдельным блоком
-    var gaps = res.map.gaps || [];
     if (gaps.length) {
-      $('gapLine').innerHTML = '<b>Различаю, но не делаю.</b> Сильные ходы вы узнаёте — ' +
-        escapeHtml(gaps.join(', ')) + ' — а в свободном ответе их не сделали.';
+      $('gapLine').innerHTML = '<b>В тесте выше, чем в своих ответах.</b> Сильные ходы вы ' +
+        'узнаёте — ' + escapeHtml(list(gaps.map(lower))) + ' — а в своих ответах их не сделали.';
       $('gapLine').classList.remove('hidden');
     } else {
       $('gapLine').classList.add('hidden');
     }
+
+    renderExtra(res.map.extra || []);
 
     var fb = $('feedbackBox');
     if (res.judge_status === 'ok' && res.feedback) {
@@ -413,12 +487,40 @@
       fb.textContent = res.feedback;
     } else {
       fb.className = 'judge-fail';
-      fb.textContent = 'Записку оценить не удалось. Расстановка посчитана и сохранена, ' +
-                       'текст тоже сохранён — ведущий может запросить разбор повторно.';
+      fb.textContent = 'Ваши ответы оценить не удалось. Расстановки посчитаны и сохранены, ' +
+                       'тексты тоже сохранены — ведущий может запросить разбор повторно.';
     }
 
     renderDetails(res, rows);
   }
+
+  /* Дополнительные способности: судья отмечает их только при явном маркере,
+     на полосы они не влияют — так заданы правила. Поэтому отдельной строкой. */
+  function renderExtra(extra) {
+    var el = $('extraLine');
+    if (!extra.length) { el.classList.add('hidden'); return; }
+
+    var names = [];
+    extra.forEach(function (e) {
+      var name = skillNameByFactor(e.code);
+      if (name && names.indexOf(name) < 0) names.push(name);
+    });
+    if (!names.length) { el.classList.add('hidden'); return; }
+
+    el.innerHTML = '<p class="kicker" style="margin-bottom:6px">Подтверждено текстом</p>' +
+      '<p style="margin:0">Это вы показали не только расстановкой, но и своими словами: ' +
+      escapeHtml(list(names.map(lower))) + '.</p>';
+    el.classList.remove('hidden');
+  }
+
+  function skillNameByFactor(code) {
+    for (var i = 0; i < CONFIG.skills.length; i++) {
+      if (CONFIG.skills[i].factors.indexOf(code) >= 0) return CONFIG.skills[i].name;
+    }
+    return '';
+  }
+
+  function lower(s) { return String(s).toLowerCase(); }
 
   /* Две фразы вместо объяснения шкалы: их читают, объяснение — нет.
      Края берутся по той же общей шкале, что и полосы. */
@@ -433,15 +535,8 @@
     var high = sorted.filter(function (r) { return r.value >= top.value - 0.01; });
     var low = sorted.filter(function (r) { return r.value <= bottom.value + 0.01; });
 
-    return 'Выше всего — ' + list(high.map(nameOf)) + '. ' +
-           'Ниже всего — ' + list(low.map(nameOf)) + '.';
-  }
-
-  function nameOf(r) { return r.name.toLowerCase(); }
-
-  function list(items) {
-    if (items.length === 1) return items[0];
-    return items.slice(0, -1).join(', ') + ' и ' + items[items.length - 1];
+    return 'Выше всего — ' + list(high.map(function (r) { return lower(r.name); })) + '. ' +
+           'Ниже всего — ' + list(low.map(function (r) { return lower(r.name); })) + '.';
   }
 
   function profileRow(r) {
@@ -466,7 +561,7 @@
     if (r.lag) {
       var lag = document.createElement('span');
       lag.className = 'prow-lag';
-      lag.textContent = 'различаете лучше, чем сделали в свободном ответе';
+      lag.textContent = 'в тесте выше, чем в своих ответах';
       row.appendChild(lag);
     }
 
@@ -481,9 +576,9 @@
     var intro = document.createElement('p');
     intro.className = 'util read';
     intro.textContent = 'Полоса выше сводит две разные величины в одну шкалу. Тест — ' +
-      'как вы различаете силу готовых ответов; зоны и шкалы для неё заданы методикой. ' +
-      'Свободный ответ — что из этого вы сделали сами, уровнями от 1 до 5. Разбор ниже — ' +
-      'по свободному ответу.';
+      'как вы различаете силу готовых реплик; зоны и шкалы для него заданы методикой. ' +
+      'Свои ответы — что из этого вы сделали сами, уровнями от 1 до 5. Разбор ниже — ' +
+      'по вашим ответам.';
     box.appendChild(intro);
 
     /* Баллов расстановки здесь нет: это внутренний счёт, человеку он ничего
@@ -570,54 +665,49 @@
       });
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-    });
-  }
-
   /* ---------- старт ---------- */
 
   /* Карта на выдуманных данных: index.html?demo=1
      Чтобы посмотреть или показать группе результат, не проходя тест целиком.
-     Данные подобраны так, чтобы были видны все состояния: верх, низ, отставание
-     записки и строка «различаю, но не делаю». */
+     Данные подобраны так, чтобы были видны все состояния: верх, низ, строка
+     сравнения и строка «подтверждено текстом». */
   function demoMap() {
     function row(id, name, score, max, ability, level, why) {
       return { id: id, name: name, score: score, max: max,
-               zoneIndex: max === 8 ? (score <= 3 ? 0 : score <= 6 ? 1 : 2)
-                                    : (score <= 1 ? 0 : score <= 3 ? 1 : 2),
+               zoneIndex: max === 6 ? (score <= 2 ? 0 : score <= 4 ? 1 : 2)
+                                    : (score === 0 ? 0 : score <= 2 ? 1 : 2),
                zone: '', ability: ability, level: level, flag: false, quote: '', why: why };
     }
     var skills = [
-      row('context', 'Анализ контекста', 7, 8, null, null, ''),
-      row('alt', 'Генерация альтернатив', 4, 4, 'ГА-1', 2,
+      row('context', 'Анализ контекста', 5, 6, null, null, ''),
+      row('alt', 'Генерация альтернатив', 3, 3, 'ГА-1', 2,
           'Уровень 2 пройден: вы добавили новый элемент. Уровень 3 нет: другой стратегической альтернативы вы не предложили.'),
-      row('prio', 'Приоритизация', 3, 4, 'ПР-1', 4,
+      row('prio', 'Приоритизация', 2, 3, 'ПР-1', 4,
           'Уровень 4 пройден: вы сформулировали отказ как правило. Уровень 5 нет: вы не назвали, какой ресурс высвобождается и куда идёт.'),
-      row('future', 'Картина будущего', 4, 4, 'МК-1', 3,
+      row('future', 'Картина будущего', 3, 3, 'МК-1', 3,
           'Уровень 3 пройден: вы назвали новое положение на рынке с горизонтом. Уровень 4 нет: смены модели в тексте не видно.'),
-      row('path', 'Путь к цели', 1, 4, 'ПП-1', 2,
+      row('path', 'Путь к цели', 1, 3, 'ПП-1', 2,
           'Уровень 2 пройден: одно ваше действие привязано к цели. Уровень 3 нет: этапы не выстроены от цели.')
     ];
     skills.forEach(function (sk) {
-      sk.zone = ['не видит', 'видит, путает', 'выбирает'][sk.zoneIndex];
+      sk.zone = CONFIG.zones[sk.zoneIndex];
     });
     return {
       judge_status: 'ok',
       feedback: 'Это показательная карта на выдуманных ответах — она нужна, чтобы посмотреть ' +
                 'на результат, не проходя тест. Настоящую обратную связь пишет судья по вашему тексту.',
-      map: { skills: skills, perSituation: {}, gaps: ['Генерация альтернатив'] }
+      map: { skills: skills, perSituation: {}, gaps: ['Генерация альтернатив'],
+             extra: [{ code: 'АК-1', level: 4, quote: '' }] }
     };
   }
 
   function init() {
-    // показательная карта: index.html?demo=1
     var params = new URLSearchParams(location.search);
 
     // своя карта по ссылке: index.html?r=<row_id>
     if (params.get('r')) { openResult(params.get('r')); return; }
 
+    // показательная карта: index.html?demo=1
     if (params.has('demo')) {
       renderMap(demoMap());
       show('screenMap');
@@ -625,27 +715,26 @@
     }
 
     initEnter();
-    initBlockA();
-    initBlockB();
+    initSituation();
+
     $('nameInput').addEventListener('input', function () {
       state.participant = $('nameInput').value.trim();
       save();
       $('introBtn').disabled = state.identify && !state.participant;
     });
 
-    $('introBtn').addEventListener('click', function () {
-      markStep(TEST.blockA[0].id);
-      show('screenA');
-      renderSituation();
-    });
+    $('introBtn').addEventListener('click', function () { goTo(state.step); });
 
     if (restore()) {
-      // возврат после случайного обновления страницы
-      $('nameBox').classList.toggle('hidden', !state.identify);
-      if (state.identify) $('nameInput').value = state.participant || '';
-      if (state.step >= TEST.blockA.length) { show('screenB'); renderBlockB(); }
-      else { show('screenA'); renderSituation(); }
-      API.ready();
+      // возврат после случайного обновления страницы: тест грузим заново
+      API.ready()
+        .then(function () { return API.loadTest(state.testId); })
+        .then(function (test) {
+          TEST = test;
+          show('screenA');
+          renderSituation();
+        })
+        .catch(function () { show('screenEnter'); });
     } else {
       show('screenEnter');
     }
