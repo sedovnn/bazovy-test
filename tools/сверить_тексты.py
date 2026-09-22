@@ -44,13 +44,14 @@ for entry in setup['tests']:
     data = json.loads((ROOT / entry['file']).read_text(encoding='utf-8'))
 
     checked = 0
-    items = [('вводная', data['intro'])]
+    items = [(f'вводная, абзац {i + 1}', para) for i, para in enumerate(data['intro'])]
     for s in data['situations']:
+        items.append((f'новость {s["num"]}, заголовок', s['title']))
         for i, para in enumerate(s['post']):
-            items.append((f'ситуация {s["num"]}, абзац {i + 1}', para))
-        items.append((f'ситуация {s["num"]}, вопрос', s['question']))
+            items.append((f'новость {s["num"]}, абзац {i + 1}', para))
+        items.append((f'новость {s["num"]}, вопрос', s['question']))
         for j, o in enumerate(s['options'], 1):
-            items.append((f'ситуация {s["num"]}, реплика {j}', o['text']))
+            items.append((f'новость {s["num"]}, комментарий {j}', o['text']))
     for q in data['free']:
         items.append((f'свободный вопрос {q["num"]}', q['text']))
 
@@ -65,15 +66,15 @@ for entry in setup['tests']:
     for s in data['situations']:
         ids = [o['id'] for o in s['options']]
         if ids != sorted(ids):
-            print(f'ПЛОХО  {entry["id"]} · ситуация {s["num"]}: реплики идут не по метке. '
+            print(f'ПЛОХО  {entry["id"]} · новость {s["num"]}: комментарии идут не по метке. '
                   'Скорее всего, остался порядок спеки — это и есть ключ.')
             bad += 1
         for o in s['options']:
             seed = '|'.join([entry['id'], s['id'], norm(o['text'])])
             want = hashlib.sha1(seed.encode('utf-8')).hexdigest()[:6]
             if o['id'] != want:
-                print(f'ПЛОХО  {entry["id"]} · ситуация {s["num"]}: метка «{o["id"]}» '
-                      f'не выводится из текста реплики (ожидал «{want}»)')
+                print(f'ПЛОХО  {entry["id"]} · новость {s["num"]}: метка «{o["id"]}» '
+                      f'не выводится из текста комментария (ожидал «{want}»)')
                 bad += 1
 
     # отпечаток из config.js должен совпадать с файлом на диске

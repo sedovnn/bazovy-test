@@ -318,6 +318,43 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 .situation { padding-top: 28px; padding-bottom: 40px; }
 
+/* ---------- карточка новости ----------
+   Новость подаётся как пост в канале: рамка-hairline, шапка с номером,
+   заголовок, текст абзацами. Теней нет, радиус общий — как везде в проекте. */
+
+.news {
+  max-width: var(--w-read);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 16px 18px 18px;
+  margin: 0 0 28px;
+}
+
+.news-num {
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.news-title {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 12px;
+}
+
+.news-body {
+  font-size: var(--fs-read);
+  color: var(--ink);
+}
+
+.news-body p { margin: 0 0 12px; }
+.news-body p:last-child { margin-bottom: 0; }
+
+/* Подпись над списком комментариев — как «комментарии» под постом. */
+.news-label { margin: 0 0 12px; }
+
 .case {
   font-size: var(--fs-read);
   color: var(--ink);
@@ -750,6 +787,7 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   .logo { font-size: var(--fs-read); }
   .progress { top: 51px; }
   .situation { padding-top: 20px; padding-bottom: 32px; }
+  .news { padding: 14px 14px 16px; }
   .opt { padding: 13px 14px; }
   .btn { width: 100%; }
   .nav-row .btn { width: auto; flex: 1; }

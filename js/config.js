@@ -9,13 +9,13 @@ var CONFIG = {
       "id": "v1.4",
       "name": "Nike · Starbucks · Novo",
       "file": "data/test_v1_4.json",
-      "v": "1b42d6dc"
+      "v": "bf8c8596"
     },
     {
       "id": "v2.3",
       "name": "Intel · bp · Stellantis",
       "file": "data/test_v2_3.json",
-      "v": "8ef2024e"
+      "v": "0db0a502"
     }
   ],
   "skills": [

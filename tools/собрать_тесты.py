@@ -20,10 +20,13 @@ spec/промпт_судьи*.md, переписывает:
 Руками эти файлы не правят: правится спека, потом скрипт.
 
 РАЗМЕТКА, НА КОТОРУЮ ОПИРАЕМСЯ:
-  Вводная для участника…: «…»
-  ## Ситуация N            → абзацы поста, **вопрос**, четыре «- реплика»
-  ### Свободный вопрос N — появляется после расстановки в ситуации M
-  # Ключи…                 → **Ситуация N — КОД.** …
+  Вводная для участника…: «…»  ← абзацы разделяются переводом строки
+  ## Новость N — Заголовок → заголовок карточки, абзацы новости, **вопрос**,
+                             четыре «- комментарий»
+  ### Свободный вопрос N — появляется после расстановки в новости M
+  # Ключи…                 → **Новость N — КОД.** …
+
+Прежнее слово «Ситуация» разбирается тоже: старые файлы тестов не ломаются.
 
 ⚠ РЕПЛИКИ БЕЗ БУКВ. В спеке они идут по возрастанию силы, и уровень каждой
 известен по её месту в списке. Поэтому в data/*.json НЕЛЬЗЯ класть ни буквы,
@@ -106,11 +109,13 @@ def parse_test(path):
     # ---- ситуации ----
     body = text[:text.index('# Ключи')] if '# Ключи' in text else text
     situations = []
-    for chunk in re.split(r'\n## Ситуация\s+', body)[1:]:
+    for chunk in re.split(r'\n## (?:Новость|Ситуация)\s+', body)[1:]:
         lines = chunk.split('\n')
-        num = lines[0].strip()
-        if not num.isdigit():
-            fail(f'{path.name}: не разобрал номер ситуации: {lines[0]!r}')
+        # «5 — Stellantis · май 2026»: номер и заголовок карточки
+        head = re.match(r'(\d+)\s*(?:—\s*(.+?))?\s*$', lines[0].strip())
+        if not head:
+            fail(f'{path.name}: не разобрал заголовок новости: {lines[0]!r}')
+        num, title = head.group(1), (head.group(2) or '').strip()
         rest = '\n'.join(lines[1:])
 
         # свободный вопрос отрезаем — он разбирается отдельно
@@ -118,40 +123,41 @@ def parse_test(path):
 
         bullets = [m.strip() for m in re.findall(r'^-\s+(.+?)\s*$', rest, re.M)]
         if len(bullets) != 4:
-            fail(f'{path.name}, ситуация {num}: ожидал 4 реплики, нашёл {len(bullets)}')
+            fail(f'{path.name}, новость {num}: ожидал 4 комментария, нашёл {len(bullets)}')
 
         first = rest.find('\n- ')
         before = rest[:first] if first >= 0 else rest
         q = re.findall(r'^\*\*(.+?)\*\*$', before.strip(), re.M)
         if len(q) != 1:
-            fail(f'{path.name}, ситуация {num}: ожидал один вопрос в **…**, нашёл {len(q)}')
+            fail(f'{path.name}, новость {num}: ожидал один вопрос в **…**, нашёл {len(q)}')
 
         # пост — абзацами, как в файле: на экране они и будут абзацами
         post = [ln.strip() for ln in before.split('\n')
                 if ln.strip() and not ln.strip().startswith('**')]
         if not post:
-            fail(f'{path.name}, ситуация {num}: пустой пост')
+            fail(f'{path.name}, новость {num}: пустая новость')
 
         sid = f's{num}'
         options = [{'id': tag(vm.group(1), sid, t), 'text': t, 'level': LEVEL_OF[LETTERS[i]]}
                    for i, t in enumerate(bullets)]
         if len({o['id'] for o in options}) != 4:
-            fail(f'{path.name}, ситуация {num}: две реплики совпали дословно')
+            fail(f'{path.name}, новость {num}: два комментария совпали дословно')
         # порядок в файле — по метке, а не по силе: иначе файл и есть ключ
         options.sort(key=lambda o: o['id'])
 
         situations.append({
-            'num': int(num), 'post': post, 'question': q[0].strip(),
+            'num': int(num), 'title': title, 'post': post, 'question': q[0].strip(),
             'options': options,
         })
 
     if len(situations) != 6:
-        fail(f'{path.name}: ожидал 6 ситуаций, нашёл {len(situations)}')
+        fail(f'{path.name}: ожидал 6 новостей, нашёл {len(situations)}')
 
     # ---- свободные вопросы ----
     free = []
     for num, after, tail in re.findall(
-            r'### Свободный вопрос\s+(\d+)\s*—\s*появляется после расстановки в ситуации\s+(\d+)\s*\n(.+?)(?=\n#|\Z)',
+            r'### Свободный вопрос\s+(\d+)\s*—\s*появляется после расстановки '
+            r'в (?:новости|ситуации)\s+(\d+)\s*\n(.+?)(?=\n#|\Z)',
             text, re.S):
         # «---» — разделитель markdown, а не текст вопроса
         para = [ln.strip() for ln in tail.split('\n')
@@ -167,10 +173,10 @@ def parse_test(path):
     # ---- ключи: какая ситуация какой фактор ----
     keys_part = text[text.index('# Ключи'):] if '# Ключи' in text else ''
     factors = {}
-    for num, code in re.findall(r'\*\*Ситуация\s+(\d+)\s*—\s*([А-ЯA-Z]+-\d)', keys_part):
+    for num, code in re.findall(r'\*\*(?:Новость|Ситуация)\s+(\d+)\s*—\s*([А-ЯA-Z]+-\d)', keys_part):
         factors.setdefault(int(num), code)
     if len(factors) != 6:
-        fail(f'{path.name}: в ключах найдено {len(factors)} ситуаций из 6')
+        fail(f'{path.name}: в ключах найдено {len(factors)} новостей из 6')
 
     # порядок ключа: в правилах он единый, но читаем из файла, если записан
     order = re.search(r'([BCDE](?:\s*→\s*[BCDE]){3})', keys_part)
@@ -195,14 +201,14 @@ def parse_test(path):
     by_num = {s['num']: s for s in situations}
     for f in free:
         if f['after'] not in by_num:
-            fail(f'{path.name}: свободный вопрос {f["num"]} ссылается на ситуацию '
+            fail(f'{path.name}: свободный вопрос {f["num"]} ссылается на новость '
                  f'{f["after"]}, которой нет')
         by_num[f['after']]['free'] = f['id']
 
     return {
         'id': vm.group(1),
         'name': hm.group(1).strip() if hm else vm.group(1),
-        'intro': im.group(1).strip(),
+        'intro': [ln.strip() for ln in im.group(1).split('\n') if ln.strip()],
         'file': f'data/test_{slug(vm.group(1))}.json',
         'situations': situations,
         'free': free,
@@ -236,7 +242,8 @@ def main():
             'id': t['id'], 'name': t['name'], 'intro': t['intro'],
             # в публичный файл уходит только то, что человек видит на экране:
             # ни кода способности, ни уровня реплики
-            'situations': [{'id': s['id'], 'num': s['num'], 'post': s['post'],
+            'situations': [{'id': s['id'], 'num': s['num'], 'title': s['title'],
+                            'post': s['post'],
                             'question': s['question'], 'free': s.get('free', ''),
                             'options': [{'id': o['id'], 'text': o['text']}
                                         for o in s['options']]}
@@ -345,7 +352,7 @@ def main():
         print(f'  {t["id"]} «{t["name"]}» → {t["file"]}')
         print(f'      {f}')
         for q in t['free']:
-            print(f'      вопрос {q["num"]} после ситуации {q["after"]} → {", ".join(q["abilities"])}')
+            print(f'      вопрос {q["num"]} после новости {q["after"]} → {", ".join(q["abilities"])}')
     print('  промпты судьи:')
     for t in tests:
         got = prompts.get(t['id'])

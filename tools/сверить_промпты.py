@@ -30,9 +30,9 @@ def situations(text):
     """Ситуация → (пост, [реплики]). Разбор тот же, что у собрать_тесты.py."""
     body = text[:text.index('# Ключи')] if '# Ключи' in text else text
     out = {}
-    for chunk in re.split(r'\n## Ситуация\s+', body)[1:]:
+    for chunk in re.split(r'\n## (?:Новость|Ситуация)\s+', body)[1:]:
         lines = chunk.split('\n')
-        num = lines[0].strip()
+        num = lines[0].split('—')[0].strip()
         rest = re.split(r'\n### Свободный вопрос', '\n'.join(lines[1:]))[0]
         bullets = [m.strip() for m in re.findall(r'^-\s+(.+?)\s*$', rest, re.M)]
         first = rest.find('\n- ')
@@ -49,7 +49,7 @@ def free_questions(text):
                                   and set(ln.strip()) != {'-'}))
             for n, _, tail in re.findall(
                 r'### Свободный вопрос\s+(\d+)\s*—\s*появляется после расстановки '
-                r'в ситуации\s+(\d+)\s*\n(.+?)(?=\n#|\Z)', text, re.S)}
+                r'в (?:новости|ситуации)\s+(\d+)\s*\n(.+?)(?=\n#|\Z)', text, re.S)}
 
 
 bad = 0
@@ -62,7 +62,10 @@ for path in sorted(SPEC.glob('промпт_судьи*.md')):
               'привязать не к чему')
         bad += 1
         continue
-    prompts.setdefault(m.group(1), []).append((path.name, norm(text)))
+    # цитаты в промпте идут markdown-блоком «> …» и могут быть в несколько
+    # абзацев — сравниваем без маркеров цитаты
+    прямой = re.sub(r'^\s*>\s?', '', text, flags=re.M)
+    prompts.setdefault(m.group(1), []).append((path.name, norm(прямой)))
 
 for test_path in sorted(SPEC.glob('тест_v*.md')):
     text = test_path.read_text(encoding='utf-8')
@@ -89,15 +92,15 @@ for test_path in sorted(SPEC.glob('тест_v*.md')):
     for num in (5, 6):
         post, bullets = sits[num]
         if norm(post) not in prompt:
-            print(f'ПЛОХО  {name}: пост ситуации {num} из {test_path.name} '
-                  'в промпт не попал дословно')
+            print(f'ПЛОХО  {name}: новость {num} из {test_path.name} '
+                  'в промпт не попала дословно')
             print(f'       {norm(post)[:110]}…')
             bad += 1
         checked += 1
         for i, b in enumerate(bullets, 1):
             if norm(b) not in prompt:
-                print(f'ПЛОХО  {name}: реплика {i} ситуации {num} '
-                      'в промпт не попала дословно')
+                print(f'ПЛОХО  {name}: комментарий {i} новости {num} '
+                      'в промпт не попал дословно')
                 print(f'       {norm(b)[:110]}…')
                 bad += 1
             checked += 1

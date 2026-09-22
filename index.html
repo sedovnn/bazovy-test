@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Карта стратегических навыков</title>
-<meta name="description" content="Базовый тест: 6 ситуаций с расстановкой реплик и 2 коротких ответа своими словами." />
+<meta name="description" content="Базовый тест: 6 новостей о крупных компаниях, комментарии под ними и 2 коротких ответа своими словами." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260921-1914" />
+<link rel="stylesheet" href="css/app.css?v=20260922-1233" />
 </head>
 <body>
 
@@ -37,7 +37,7 @@
 <section class="frame enter" id="screenEnter">
   <p class="kicker">Вход</p>
   <h1 class="hero-h">Карта<br /><em>стратегических</em><br />навыков</h1>
-  <p class="lead read" style="margin-top:24px">Около пятнадцати минут: 6 ситуаций с расстановкой реплик и 2 коротких ответа своими словами.</p>
+  <p class="lead read" style="margin-top:24px">Около пятнадцати минут: 6 новостей о крупных компаниях с комментариями под ними и 2 коротких ответа своими словами.</p>
 
   <form id="enterForm" autocomplete="off">
     <p class="kicker" style="margin-bottom:8px"><label for="codeInput">Код сессии</label></p>
@@ -59,10 +59,10 @@
   <p class="kicker">Как отвечать</p>
   <h2 class="screen-h read">Как устроен тест</h2>
   <div class="read">
-    <!-- Вводная приходит из файла теста: у каждого теста своя. -->
-    <p class="lead" id="introText"></p>
-    <p>Нажмите на реплику, под которой подписались бы, — она получит номер&nbsp;1. Дальше по убыванию: вторая, третья, четвёртая.</p>
-    <p>Нажали не туда — нажмите на реплику ещё раз, номер снимется. «Дальше» включается, когда расставлены все четыре.</p>
+    <!-- Легенда приходит из файла теста: у каждого теста своя. -->
+    <div id="introText"></div>
+    <p>Нажмите на комментарий, который написали бы сами, — он получит номер&nbsp;1. Дальше по убыванию: второй, третий, четвёртый.</p>
+    <p>Нажали не туда — нажмите на комментарий ещё раз, номер снимется. «Дальше» включается, когда расставлены все четыре.</p>
   </div>
 
   <!-- Только в именной сессии. Обычные прогоны анонимны, поле скрыто. -->
@@ -76,21 +76,26 @@
 
   <div class="info read" style="margin:24px 0">
     <p class="kicker" style="margin-bottom:6px">Что дальше</p>
-    <p style="margin:0">6 ситуаций. В 2 последних сразу после расстановки появится вопрос,
-      где отвечаете вы сами — 3–4 предложения и 3 предложения. Вернуться к предыдущей ситуации можно.</p>
+    <p style="margin:0">6 новостей. В 2 последних сразу после расстановки появится вопрос,
+      где отвечаете вы сами — 3–4 предложения и 3 предложения. Вернуться к предыдущей новости можно.</p>
   </div>
 
   <button class="btn btn-primary" id="introBtn" type="button">Начать</button>
 </section>
 
-<!-- 3. ситуация: пост, реплики, при необходимости — свободный вопрос -->
+<!-- 3. новость: карточка, комментарии, при необходимости — свободный вопрос -->
 <section class="frame situation hidden" id="screenA">
-  <!-- Коды способностей участнику не показываем: так заданы правила. -->
-  <p class="kicker" id="aFactor">Ситуация 1 из 6</p>
-  <div class="case read" id="aCase"></div>
+  <!-- Новость — карточкой, как пост в канале: шапка, заголовок, текст абзацами.
+       Коды способностей участнику не показываем: так заданы правила. -->
+  <article class="news">
+    <p class="kicker news-num" id="aFactor">Новость 1 из 6</p>
+    <h2 class="news-title" id="aTitle"></h2>
+    <div class="news-body" id="aCase"></div>
+  </article>
 
+  <p class="kicker news-label">Комментарии</p>
   <h2 class="question read" id="aQuestion"></h2>
-  <p class="hint util read" id="aHint">Нажимайте по очереди: сначала та, под которой подписались бы, дальше по убыванию.</p>
+  <p class="hint util read" id="aHint">Повторное нажатие снимает номер.</p>
 
   <ul class="opts" id="aOptions"></ul>
 
@@ -110,7 +115,7 @@
   <div class="nav-row">
     <button class="btn btn-ghost btn-sm" id="aBack" type="button">Назад</button>
     <button class="btn btn-primary" id="aNext" type="button" disabled>Дальше</button>
-    <span class="nav-note" id="aNote">Расставьте все четыре</span>
+    <span class="nav-note" id="aNote">Расставьте все 4</span>
   </div>
 
   <p class="err hidden" id="aErr" role="alert"></p>
@@ -165,8 +170,8 @@
 
 </main>
 
-<script src="js/config.js?v=20260921-1914"></script>
-<script src="js/api.js?v=20260921-1914"></script>
-<script src="js/test.js?v=20260921-1914"></script>
+<script src="js/config.js?v=20260922-1233"></script>
+<script src="js/api.js?v=20260922-1233"></script>
+<script src="js/test.js?v=20260922-1233"></script>
 </body>
 </html>

@@ -155,13 +155,15 @@ def main():
 
     for test in tests:
         L.append(f'\n### Тест {test["id"]} — {test["name"]}\n')
-        L.append(f'\n**Вводная на экране.** {test["intro"]}\n')
-        L.append('\nУчастник видит реплики в случайном порядке и без букв. Здесь они '
-                 'в порядке спеки: сверху слабейшая, снизу сильнейшая.\n')
+        L.append('\n**Вводная на экране.**\n')
+        for para in test['intro']:
+            L.append(f'\n{para}\n')
+        L.append('\nУчастник видит комментарии в случайном порядке и без букв. Здесь они '
+                 'в порядке спеки: сверху слабейший, снизу сильнейший.\n')
 
         free = {q['id']: q for q in test['free']}
         for sit in test['situations']:
-            L.append(f'\n#### Ситуация {sit["num"]}\n')
+            L.append(f'\n#### Новость {sit["num"]} — {sit["title"]}\n')
             for para in sit['post']:
                 L.append(f'\n{para}\n')
             L.append(f'\n**Вопрос.** {sit["question"]}\n\n')
