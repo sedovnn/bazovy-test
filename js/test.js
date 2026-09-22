@@ -184,13 +184,18 @@
         });
     });
 
-    // код из ссылки: index.html?s=КОД
-    var fromUrl = new URLSearchParams(location.search).get('s');
-    if (fromUrl) {
-      input.value = normalize(fromUrl);
-      btn.disabled = input.value.length !== 6;
-      if (input.value.length === 6) $('enterForm').requestSubmit();
-    }
+  }
+
+  /* Код из ссылки index.html?s=КОД, приведённый к виду поля ввода. */
+  function codeFromUrl() {
+    return (new URLSearchParams(location.search).get('s') || '')
+      .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  }
+
+  function startWithCode(code) {
+    $('codeInput').value = code;
+    $('enterBtn').disabled = code.length !== 6;
+    if (code.length === 6) $('enterForm').requestSubmit();
   }
 
   function showIntro() {
@@ -228,6 +233,9 @@
   function rankingDone(situation) { return ranked(situation) === situation.options.length; }
 
   function renderSituation(focusOptId) {
+    // Тест приезжает отдельным запросом. Пока его нет, рисовать нечего:
+    // без этой проверки гонка двух запусков оставляла пустой экран.
+    if (!TEST) return;
     var s = currentSituation();
     var ids = s.options.map(function (o) { return o.id; });
 
@@ -750,7 +758,25 @@
 
     $('introBtn').addEventListener('click', function () { goTo(state.step); });
 
-    if (restore()) {
+    /* Сохранённый прогон и ссылка с кодом могут спорить: человек не дошёл
+       до конца, а потом в той же вкладке открыл ссылку на другую сессию.
+       Побеждает ссылка — это осознанное действие, а прогон мог остаться
+       от кого-то другого на общем устройстве. Раньше оба запускались разом
+       и гонка оставляла пустой экран. */
+    var fromUrl = codeFromUrl();
+    var есть = restore();
+
+    if (есть && fromUrl && fromUrl !== state.code) {
+      try { sessionStorage.removeItem(STORE); } catch (e) {}
+      есть = false;
+      state.order = {};
+      state.shuffled = {};
+      state.answers = {};
+      state.times = {};
+      state.step = 0;
+    }
+
+    if (есть) {
       // возврат после случайного обновления страницы: тест грузим заново
       API.ready()
         .then(function () { return API.loadTest(state.testId); })
@@ -760,9 +786,11 @@
           renderSituation();
         })
         .catch(function () { show('screenEnter'); });
-    } else {
-      show('screenEnter');
+      return;
     }
+
+    show('screenEnter');
+    if (fromUrl) startWithCode(fromUrl);
   }
 
   document.addEventListener('DOMContentLoaded', init);
