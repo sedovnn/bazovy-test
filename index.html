@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20260922-1237" />
+<link rel="stylesheet" href="css/app.css?v=20261014-1204" />
 </head>
 <body>
 
@@ -143,17 +143,14 @@
 
   <div class="gap-line hidden" id="gapLine"></div>
 
-  <div class="info read hidden" id="extraLine" style="margin:24px 0 0"></div>
+  <!-- Отчёт: по каждому навыку не больше двух коротких строк — что человек
+       различает в расстановке и что видно в его собственном ответе. Кухня оценки
+       (границы уровней, цитаты) лежит в таблице, участнику она не нужна. -->
+  <div class="report read" id="mapReport"></div>
 
-  <div style="margin:32px 0 0" class="read">
-    <p class="kicker">Разбор ваших ответов</p>
-    <div id="feedbackBox"></div>
-  </div>
-
-  <details class="details">
-    <summary>Подробнее: из чего это сложилось</summary>
-    <div class="details-body" id="mapDetails"></div>
-  </details>
+  <p class="disclaimer read" id="mapDisclaimer">Это приблизительная картина: тест короткий —
+    6 новостей и 2 коротких ответа. Для полной оценки стратегического мышления рекомендуем
+    пройти ассессмент i(m)perfect.</p>
 
   <!-- Ссылка на эту же карту. Без неё карта живёт до закрытия вкладки. -->
   <div class="info read hidden" id="keepBox" style="margin:32px 0 0">
@@ -170,8 +167,8 @@
 
 </main>
 
-<script src="js/config.js?v=20260922-1237"></script>
-<script src="js/api.js?v=20260922-1237"></script>
-<script src="js/test.js?v=20260922-1237"></script>
+<script src="js/config.js?v=20261014-1204"></script>
+<script src="js/api.js?v=20261014-1204"></script>
+<script src="js/test.js?v=20261014-1204"></script>
 </body>
 </html>

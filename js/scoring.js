@@ -98,8 +98,9 @@ var GAP_ZONE = 2;
 var GAP_MAX_LEVEL = 2;
 
 /* Собирает карту участника.
-   test — запись из CONFIG.tests: id, situations, factors (ситуация → код фактора).
-   orderings — { s1: ['E','D','C','B'], … }; judge — разобранный ответ судьи или null. */
+   test — запись из CONFIG.tests: id, situations, factors (новость → код способности).
+   orderings — { s1: [метки в порядке расстановки], … }; judge — разобранный
+   ответ судьи (см. parseVerdict в judge.gs) или null. */
 function buildMap(skills, test, orderings, judge) {
   var perSituation = {};
   for (var sid in orderings) {
@@ -136,37 +137,33 @@ function buildMap(skills, test, orderings, judge) {
       zoneIndex: zi, zone: ZONE_NAMES[zi],
       value: combinedValue(sum, max, null),
       ability: sk.ability || null,
-      level: null, flag: false, slogan: false, quote: '', why: ''
+      level: null, review: false, flag: false, slogan: false,
+      quote: '', why: '', takeaway: ''
     };
 
     if (sk.ability && judge && judge[sk.ability]) {
       var a = judge[sk.ability];
-      row.level = a.level;
+      // «Ручная проверка» по методологии v8: уровня нет, полоса строится
+      // только по расстановке, человек видит «уточняется».
+      row.review = a.status === 'ручная проверка' || !a.level;
+      row.level = row.review ? null : a.level;
       row.flag = !!a.flag;
       row.slogan = !!a.slogan;
       row.quote = a.quote || '';
-      row.why = a.why || '';
-      row.value = combinedValue(sum, max, a.level);
+      row.takeaway = a.takeaway || a.why || '';
+      row.why = row.takeaway;
+      row.value = combinedValue(sum, max, row.level);
 
-      if (zi >= GAP_ZONE && a.level && a.level <= GAP_MAX_LEVEL) gaps.push(sk.name);
+      if (zi >= GAP_ZONE && row.level && row.level <= GAP_MAX_LEVEL) gaps.push(sk.name);
     }
 
     out.push(row);
   }
 
-  // Дополнительные способности: судья отмечает их только при явном маркере,
-  // на зону они не влияют — так заданы правила.
-  var extra = [];
-  if (judge && judge.extra) {
-    for (var code in judge.extra) {
-      if (Object.prototype.hasOwnProperty.call(judge.extra, code)) {
-        extra.push({ code: code, level: judge.extra[code].level,
-                     quote: judge.extra[code].quote || '' });
-      }
-    }
-  }
-
-  return { skills: out, perSituation: perSituation, gaps: gaps, extra: extra };
+  /* Оценка остальных шести способностей по свободному тексту снята профилем
+     мини-формата: вопросы под них не строились. Поле оставлено пустым, чтобы
+     прежние экраны не ломались. */
+  return { skills: out, perSituation: perSituation, gaps: gaps, extra: [] };
 }
 
 if (typeof module !== 'undefined' && module.exports) {

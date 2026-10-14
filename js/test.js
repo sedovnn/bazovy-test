@@ -494,13 +494,16 @@
 
     var box = $('mapProfile');
     box.innerHTML = '';
-    rows.forEach(function (r) { box.appendChild(profileRow(r)); });
-
     var note = document.createElement('p');
     note.className = 'scale-note';
-    note.textContent = 'Шкала одна на все навыки: чем длиннее полоса, тем увереннее навык ' +
-      'проявился. Тест короткий, картина приблизительная — она показывает, где перепад, ' +
-      'а не точное значение.';
+    if (res.legacy) {
+      // Карта из первой версии теста: там другая шкала, полосы по нынешней были бы враньём.
+      $('mapLead').textContent = 'Это карта из первой версии теста.';
+      note.textContent = 'Полосы для неё не строятся: в той версии была другая шкала. Ниже — что было видно по вашим ответам.';
+    } else {
+      rows.forEach(function (r) { box.appendChild(profileRow(r)); });
+      note.textContent = 'Шкала одна на все навыки: чем длиннее полоса, тем увереннее навык проявился.';
+    }
     box.appendChild(note);
 
     if (gaps.length) {
@@ -511,45 +514,7 @@
       $('gapLine').classList.add('hidden');
     }
 
-    renderExtra(res.map.extra || []);
-
-    var fb = $('feedbackBox');
-    if (res.judge_status === 'ok' && res.feedback) {
-      fb.className = 'read';
-      fb.textContent = res.feedback;
-    } else {
-      fb.className = 'judge-fail';
-      fb.textContent = 'Ваши ответы оценить не удалось. Расстановки посчитаны и сохранены, ' +
-                       'тексты тоже сохранены — ведущий может запросить разбор повторно.';
-    }
-
-    renderDetails(res, rows);
-  }
-
-  /* Дополнительные способности: судья отмечает их только при явном маркере,
-     на полосы они не влияют — так заданы правила. Поэтому отдельной строкой. */
-  function renderExtra(extra) {
-    var el = $('extraLine');
-    if (!extra.length) { el.classList.add('hidden'); return; }
-
-    var names = [];
-    extra.forEach(function (e) {
-      var name = skillNameByFactor(e.code);
-      if (name && names.indexOf(name) < 0) names.push(name);
-    });
-    if (!names.length) { el.classList.add('hidden'); return; }
-
-    el.innerHTML = '<p class="kicker" style="margin-bottom:6px">Подтверждено текстом</p>' +
-      '<p style="margin:0">Это вы показали не только расстановкой, но и своими словами: ' +
-      escapeHtml(list(names.map(lower))) + '.</p>';
-    el.classList.remove('hidden');
-  }
-
-  function skillNameByFactor(code) {
-    for (var i = 0; i < CONFIG.skills.length; i++) {
-      if (CONFIG.skills[i].factors.indexOf(code) >= 0) return CONFIG.skills[i].name;
-    }
-    return '';
+    renderReport(res);
   }
 
   function lower(s) { return String(s).toLowerCase(); }
@@ -600,50 +565,78 @@
     return row;
   }
 
-  /* Подробности: всё, из чего сложилась полоса. Свёрнуто по умолчанию. */
-  function renderDetails(res, rows) {
-    var box = $('mapDetails');
+  /* Что человек различает в расстановке — одна фраза по зоне навыка.
+     Тексты пересказывают сквозные лестницы методологии простыми словами:
+     какой комментарий человек ставит первым. Слово «различаете», а не
+     «умеете»: расстановка показывает узнавание чужого сильного хода. */
+  var RECOGNITION = {
+    context: [
+      'Пока вам ближе комментарии, которые называют одну причину. Сильнее те, что видят, как причины тянут друг друга.',
+      'Широкий разбор вы замечаете, но иногда ставите выше перечень причин, а не их связь.',
+      'Вы узнаёте разбор, который смотрит дальше новости и связывает причины в цепочку.'
+    ],
+    alt: [
+      'Пока вам ближе решения из привычной практики своей отрасли.',
+      'Чужой опыт вы цените, но копию не всегда отличаете от осмысленного переноса.',
+      'Вы узнаёте ход, взятый из другой отрасли с пониманием, почему он там работает.'
+    ],
+    prio: [
+      'Пока вам ближе выбор, объяснённый одним фактом, а не целью.',
+      'Выбор через цель вы видите, но не всегда отличаете его от сравнения вариантов с названной ценой.',
+      'Вы узнаёте выбор, за которым стоит правило и честно названная жертва.'
+    ],
+    future: [
+      'Пока вам ближе одно уверенное будущее.',
+      'Несколько исходов вы видите, но не всегда замечаете, что именно их разводит.',
+      'Вы узнаёте взгляд, где будущее разводит внешняя неопределённость, а не успех компании.'
+    ],
+    path: [
+      'Пока вам ближе честное снижение цели под ограничения.',
+      'Ресурсы под барьеры вы видите, но не всегда отличаете это от простого «цель держим».',
+      'Вы узнаёте ход, где ограничение перестаёт быть стеной, а цель остаётся прежней.'
+    ]
+  };
+
+  function repLine(tag, text, open) {
+    var p = document.createElement('p');
+    p.className = 'rep-line' + (open ? ' is-open' : '');
+    var t = document.createElement('span');
+    t.className = 'rep-tag';
+    t.textContent = tag;
+    p.appendChild(t);
+    p.appendChild(document.createTextNode(text));
+    return p;
+  }
+
+  /* Отчёт: по каждому навыку не больше двух строк. Уровней и кодов нет. */
+  function renderReport(res) {
+    var box = $('mapReport');
     box.innerHTML = '';
+    var judged = res.judge_status === 'ok';
 
-    var intro = document.createElement('p');
-    intro.className = 'util read';
-    intro.textContent = 'Полоса выше сводит две разные величины в одну шкалу. Тест — ' +
-      'как вы различаете силу готовых комментариев; зоны и шкалы для него заданы методикой. ' +
-      'Свои ответы — что из этого вы сделали сами, уровнями от 1 до 5. Разбор ниже — ' +
-      'по вашим ответам.';
-    box.appendChild(intro);
-
-    /* Баллов расстановки здесь нет: это внутренний счёт, человеку он ничего
-       не говорит. Навыки без разбора свободного ответа не показываем вовсе —
-       пустая строка читалась бы как поломка. */
-    rows.filter(function (r) { return r.raw.ability; }).forEach(function (r) {
-      var sk = r.raw;
+    res.map.skills.forEach(function (sk) {
       var wrap = document.createElement('div');
       wrap.className = 'skill';
-
       var name = document.createElement('div');
       name.className = 'skill-name';
       name.textContent = sk.name;
       wrap.appendChild(name);
 
-      var b = document.createElement('p');
-      b.className = 'skill-b';
-      if (sk.level) {
-        b.innerHTML = levelDots(sk.level) + 'уровень <b>' + sk.level + '</b> из 5';
-        if (sk.why) b.innerHTML += '<br /><span class="util">' + escapeHtml(sk.why) + '</span>';
-      } else {
-        b.innerHTML = '<span class="util">оценка не получена</span>';
-      }
-      wrap.appendChild(b);
+      var zi = (typeof sk.zoneIndex === 'number') ? sk.zoneIndex : CONFIG.zones.indexOf(sk.zone);
+      if (RECOGNITION[sk.id] && zi >= 0) wrap.appendChild(repLine('В тесте', RECOGNITION[sk.id][zi]));
 
+      if (sk.ability) {
+        if (!judged) {
+          wrap.appendChild(repLine('В ответе',
+            'Оценка ответа не получена. Расстановка и текст сохранены, ведущий может запросить разбор повторно.', true));
+        } else if (sk.review) {
+          wrap.appendChild(repLine('В ответе', 'Уточняется. ' + (sk.takeaway || ''), true));
+        } else if (sk.takeaway || sk.why) {
+          wrap.appendChild(repLine('В ответе', sk.takeaway || sk.why));
+        }
+      }
       box.appendChild(wrap);
     });
-  }
-
-  function levelDots(level) {
-    var out = '<span class="lvl" aria-hidden="true">';
-    for (var i = 1; i <= 5; i++) out += '<i class="' + (i <= level ? 'on' : '') + '"></i>';
-    return out + '</span>';
   }
 
   /* ---------- возврат к своей карте ---------- */
@@ -703,34 +696,30 @@
   /* Карта на выдуманных данных: index.html?demo=1
      Чтобы посмотреть или показать группе результат, не проходя тест целиком.
      Данные подобраны так, чтобы были видны все состояния: верх, низ, строка
-     сравнения и строка «подтверждено текстом». */
+     сравнения и «уточняется». */
   function demoMap() {
-    function row(id, name, score, max, ability, level, why) {
+    function row(id, name, score, max, ability, level, takeaway, review) {
       return { id: id, name: name, score: score, max: max,
                zoneIndex: max === 6 ? (score <= 2 ? 0 : score <= 4 ? 1 : 2)
                                     : (score === 0 ? 0 : score <= 2 ? 1 : 2),
-               zone: '', ability: ability, level: level, flag: false, quote: '', why: why };
+               zone: '', ability: ability, level: review ? null : level, review: !!review,
+               flag: false, quote: '', takeaway: takeaway, why: takeaway };
     }
     var skills = [
       row('context', 'Анализ контекста', 5, 6, null, null, ''),
       row('alt', 'Генерация альтернатив', 3, 3, 'ГА-1', 2,
-          'Уровень 2 пройден: вы добавили новый элемент. Уровень 3 нет: другой стратегической альтернативы вы не предложили.'),
+          'Вы добавили свой ход поверх предложенных. Следующий шаг — сравнить его хотя бы с одним другим путём.'),
       row('prio', 'Приоритизация', 2, 3, 'ПР-1', 4,
-          'Уровень 4 пройден: вы сформулировали отказ как правило. Уровень 5 нет: вы не назвали, какой ресурс высвобождается и куда идёт.'),
-      row('future', 'Картина будущего', 3, 3, 'МК-1', 3,
-          'Уровень 3 пройден: вы назвали новое положение на рынке с горизонтом. Уровень 4 нет: смены модели в тексте не видно.'),
+          'Вы сформулировали правило, по которому будете отказываться. Следующий шаг — назвать, что этот отказ освобождает и куда идёт.'),
+      row('future', 'Картина будущего', 3, 3, 'МК-1', null,
+          'Вы называете новое место компании на рынке; неясно, меняется ли при этом сам способ зарабатывать.', true),
       row('path', 'Путь к цели', 1, 3, 'ПП-1', 2,
-          'Уровень 2 пройден: одно ваше действие привязано к цели. Уровень 3 нет: этапы не выстроены от цели.')
+          'Ваши шаги ведут к цели. Следующий шаг — показать, какой из них открывает следующий.')
     ];
-    skills.forEach(function (sk) {
-      sk.zone = CONFIG.zones[sk.zoneIndex];
-    });
+    skills.forEach(function (sk) { sk.zone = CONFIG.zones[sk.zoneIndex]; });
     return {
       judge_status: 'ok',
-      feedback: 'Это показательная карта на выдуманных ответах — она нужна, чтобы посмотреть ' +
-                'на результат, не проходя тест. Настоящую обратную связь пишет судья по вашему тексту.',
-      map: { skills: skills, perSituation: {}, gaps: ['Генерация альтернатив'],
-             extra: [{ code: 'АК-1', level: 4, quote: '' }] }
+      map: { skills: skills, perSituation: {}, gaps: ['Генерация альтернатив'], extra: [] }
     };
   }
 

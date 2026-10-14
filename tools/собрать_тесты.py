@@ -319,16 +319,35 @@ def main():
     # ---- промпты судьи: свой на каждый тест ----
     # Судья видит контекст конкретного кейса, поэтому один промпт на два теста
     # не годится. Привязка — по «(тест vX.Y)» в заголовке файла промпта.
+    #
+    # Файл промпта в спеке — это только обёртка: контекст новостей 5–6,
+    # каталог Т1 и формат выдачи. Генератор дописывает к ней профиль
+    # мини-формата и полный текст методологии. Так методология лежит в спеке
+    # одним файлом, дословно, и не расходится между тестами.
+    profile_path = one('профиль_мини_формата*.md', 'профиль')
+    method_path = one('methodology_for_imp_v*.md', 'методология')
+    profile = profile_path.read_text(encoding='utf-8').strip()
+    method = method_path.read_text(encoding='utf-8').strip()
+    pv = re.search(r'Версия профиля:\s*([\d.]+)', profile)
+    mv = re.search(r'^Версия:\s*(\S+?)\.?$', method, re.M)
+    profile_ver = pv.group(1) if pv else '?'
+    method_ver = mv.group(1) if mv else method_path.stem
+
     prompts = {}
     for path in sorted(SPEC.glob('промпт_судьи*.md')):
-        text = path.read_text(encoding='utf-8')
-        m = re.search(r'\(тест\s+(v[\d.]+)\)', text.split('\n')[0])
+        wrapper = path.read_text(encoding='utf-8')
+        m = re.search(r'\(тест\s+(v[\d.]+)\)', wrapper.split('\n')[0])
         if not m:
             print(f'  ПРОПУЩЕН {path.name}: в заголовке нет «(тест vX.Y)»')
             continue
-        vm2 = re.search(r'v[\d.]+', path.name)
-        prompts[m.group(1)] = {'version': vm2.group(0) if vm2 else '?',
-                               'file': path.name, 'text': text}
+        vm2 = re.search(r'v\d+(?:\.\d+)*', path.name)
+        text = (wrapper.rstrip()
+                + '\n\n---\n\n## Часть 2. Профиль применения к мини-формату\n\n' + profile
+                + '\n\n---\n\n## Часть 3. Методология (дословно)\n\n' + method + '\n')
+        prompts[m.group(1)] = {
+            'version': (vm2.group(0) if vm2 else '?')
+                       + f' · профиль {profile_ver} · методология {method_ver}',
+            'file': path.name, 'text': text}
 
     lines = []
     for test_id in sorted(prompts):
@@ -339,8 +358,8 @@ def main():
                      + '    text: [\n' + body + '\n    ].join(\'\\n\')\n  }')
 
     (ROOT / 'apps-script' / 'judge_prompts.gs').write_text(
-        '/* СОБРАНО АВТОМАТИЧЕСКИ из spec/промпт_судьи*.md.\n'
-        '   Промпты целиком и дословно, по одному на тест. Правится только спека.\n'
+        '/* СОБРАНО АВТОМАТИЧЕСКИ: spec/промпт_судьи*.md (обёртка) + профиль\n'
+        '   мини-формата + методология, по промпту на тест. Правится только спека.\n'
         '   Строки закодированы как JSON, чтобы кавычки и markdown внутри\n'
         '   не ломали литерал. */\n\n'
         'var JUDGE_PROMPTS = {\n' + ',\n'.join(lines) + '\n};\n',

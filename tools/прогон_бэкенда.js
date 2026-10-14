@@ -58,7 +58,17 @@ const book = {
   deleteSheet: () => {},
 };
 
-let fetchMode = 'ok';          // ok | http500 | мусор | сеть
+/* Вердикт судьи по одной способности в формате профиля мини-формата. */
+function вердикт(level, статусы, цитата, доп) {
+  const gates = {};
+  ['2', '3', '4', '5'].forEach((k, i) => {
+    gates[k] = статусы[i] === 'нет' ? { s: 'нет' } : { s: статусы[i], q: цитата + ' ' + k };
+  });
+  return Object.assign({ gates, status: 'оценено', level, options: [], flag: false, slogan: false,
+                         takeaway: 'Вы назвали ' + цитата + '. Следующий шаг — дальше.' }, доп || {});
+}
+
+let fetchMode = 'ok';          // ok | спорно | http500 | мусор | сеть
 let fetchCalls = 0;
 
 global.PropertiesService = {
@@ -91,7 +101,7 @@ global.UrlFetchApp = {
       throw new Error('system должен быть блоком с cache_control');
     }
     if ('temperature' in body) throw new Error('temperature эта модель не принимает — 400');
-    if (body.max_tokens !== 2000) throw new Error('max_tokens не 2000, как в спеке');
+    if (body.max_tokens !== 4000) throw new Error('max_tokens не 4000: разбор по границам длиннее');
     if (!body.thinking || body.thinking.type !== 'disabled') throw new Error('рассуждение не выключено');
     const content = body.messages[0].content;
     if (!/^<ответ1>/.test(content) || content.indexOf('<ответ2>') < 0) {
@@ -100,12 +110,12 @@ global.UrlFetchApp = {
     const text = fetchMode === 'мусор' && fetchCalls === 1
       ? 'Конечно! Вот оценка.'
       : '```json\n' + JSON.stringify({
-          'МК-1': { level: 4, quote: 'сервис', why: 'Уровень 4 пройден', flag: false, slogan: false },
-          'ГА-1': { level: 2, quote: 'отказ', why: 'Уровень 2 пройден', flag: false, slogan: false },
-          'ПР-1': { level: 5, quote: 'высвобождаем', why: 'Уровень 5 пройден', flag: true, slogan: false },
-          'ПП-1': { level: 3, quote: 'первый год', why: 'Уровень 3 пройден', flag: false, slogan: true },
-          extra: { 'АК-1': { level: 4, quote: 'китайская цена' } },
-          feedback: 'Видно направление, не хватает связи этапов.',
+          'МК-1': fetchMode === 'спорно'
+            ? вердикт(null, ['да', 'да', 'спорно', 'нет'], 'сервис', { status: 'ручная проверка', options: [3, 4] })
+            : вердикт(4, ['Да', 'да', 'да', 'нет'], 'сервис'),
+          'ГА-1': вердикт(2, ['да', 'нет', 'нет', 'нет'], 'отказ'),
+          'ПР-1': вердикт(5, ['да', 'да', 'нет', 'да'], 'высвобождаем', { flag: true }),
+          'ПП-1': вердикт(3, ['да', 'да', 'нет', 'нет'], 'первый год', { slogan: true }),
         }) + '\n```';
     return {
       getResponseCode: () => 200,
@@ -177,8 +187,10 @@ check('слабый навык: 0 из 3, «не видит»',
 check('уровень ГА-1 доехал', r1.map.skills[1].level === 2);
 check('флаг ПР-1 сохранён', r1.map.skills[2].flag === true);
 check('признак лозунга сохранён', r1.map.skills[4].slogan === true);
-check('дополнительная способность записана', r1.map.extra.length === 1 && r1.map.extra[0].code === 'АК-1');
-check('строка «в расстановке выше» есть', r1.map.gaps.length > 0, JSON.stringify(r1.map.gaps));
+check('оценка шести способностей по тексту снята', r1.map.extra.length === 0);
+check('вывод для человека доехал', /Вы назвали/.test(r1.map.skills[1].takeaway));
+check('строка «в тесте выше» есть', r1.map.gaps.length > 0, JSON.stringify(r1.map.gaps));
+check('немонотонный ПР-1: L5 с флагом', r1.map.skills[2].level === 5 && r1.map.skills[2].flag === true);
 
 const h = sheets['responses']._rows[0], row = sheets['responses']._rows[1];
 check('имя записано', row[h.indexOf('participant')] === 'Катя Иванова');
@@ -186,12 +198,34 @@ check('тест записан', row[h.indexOf('test_id')] === судейски�
 check('оба свободных ответа записаны',
       судейский.free.every(q => String(row[h.indexOf(q.id + '_text')]).length > 0));
 check('время по вопросам записано', row[h.indexOf('q1_sec')] === 118);
-check('дополнительные способности в колонке', String(row[h.indexOf('extra')]).indexOf('АК-1') >= 0);
+check('статус записан', row[h.indexOf('МК-1_status')] === 'оценено');
+check('разбор по границам записан текстом',
+      /1→2: да «сервис 2»/.test(String(row[h.indexOf('МК-1_gates')])) &&
+      /4→5: нет/.test(String(row[h.indexOf('МК-1_gates')])), row[h.indexOf('МК-1_gates')]);
+check('цитата — верхней пройденной границы', row[h.indexOf('МК-1_quote')] === 'сервис 4');
+check('вывод записан', /Вы назвали/.test(String(row[h.indexOf('МК-1_takeaway')])));
+
+console.log('\n2а. Спорная граница — ручная проверка по v8');
+fetchMode = 'спорно';
+const rr = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-спорно' });
+const буд = rr.map.skills.filter(sk => sk.ability === 'МК-1')[0];
+check('уровня нет', буд.level === null && буд.review === true, JSON.stringify(буд));
+check('полоса строится по расстановке', буд.value === буд.score / буд.max);
+const rowR = sheets['responses']._rows[sheets['responses']._rows.length - 1];
+check('в таблице «ручная проверка» и варианты',
+      rowR[h.indexOf('МК-1_status')] === 'ручная проверка' && rowR[h.indexOf('МК-1_options')] === '3, 4' &&
+      rowR[h.indexOf('МК-1_level')] === '');
+const reopen = post({ action: 'result', rowId: rr.rowId });
+const буд2 = reopen.map.skills.filter(sk => sk.ability === 'МК-1')[0];
+check('при повторном открытии статус сохранился', буд2.review === true && буд2.level === null);
+const сводкаR = post({ action: 'summary', code }).summary.skills.filter(sk => sk.ability === 'МК-1')[0];
+check('в сводке ручная проверка посчитана отдельно', сводкаR.review === 1, JSON.stringify(сводкаR));
+fetchMode = 'ok';
 
 console.log('\n3. Повторная отправка и открытие карты');
 const r2 = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-1' });
 check('повтор узнан', r2.repeat === true);
-check('вторая строка не создана', sheets['responses']._rows.length === 2);
+check('лишняя строка не создана', sheets['responses']._rows.length === 3);   // заголовок + ключ-1 + ключ-спорно
 const r3 = post({ action: 'result', rowId: r1.rowId });
 check('карта открылась по адресу', r3.ok === true && r3.map.skills.length === 5);
 check('та же карта', JSON.stringify(r3.map.skills.map(s => s.score)) ===
@@ -205,7 +239,7 @@ check('отправка не упала', r4.ok === true);
 check('judge_status = error', r4.judge_status === 'error');
 check('карта расстановок вернулась', r4.map.skills[0].score === 6);
 check('уровней нет', r4.map.skills[1].level === null);
-const битая = sheets['responses']._rows[2];
+const битая = sheets['responses']._rows[sheets['responses']._rows.length - 1];
 check('тексты ответов сохранены',
       судейский.free.every(q => String(битая[h.indexOf(q.id + '_text')]).length > 0));
 
@@ -240,7 +274,7 @@ if (безСудьи) {
 
 console.log('\n8. Агрегат');
 const s = post({ action: 'summary', code });
-check('посчитаны все отправки', s.summary.count === 3, 'count=' + s.summary.count);
+check('посчитаны все отправки', s.summary.count === 4, 'count=' + s.summary.count);   // с проверкой «спорно»
 check('сводка знает тест', s.summary.test === судейский.id);
 check('группа разложена по общей шкале',
       s.summary.skills.every(sk => sk.buckets.reduce((a, b) => a + b, 0) === s.summary.count));

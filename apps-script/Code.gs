@@ -131,9 +131,10 @@ function responseHeader() {
   CONFIG.tests[0].free.forEach(function (q) { head.push(q.id + '_text', q.id + '_words'); });
 
   CONFIG.abilities.forEach(function (a) {
-    head.push(a.id + '_level', a.id + '_flag', a.id + '_slogan', a.id + '_quote', a.id + '_why');
+    head.push(a.id + '_status', a.id + '_level', a.id + '_options', a.id + '_flag',
+              a.id + '_slogan', a.id + '_quote', a.id + '_takeaway', a.id + '_gates');
   });
-  head.push('extra', 'feedback', 'judge_status', 'judge_error', 'judge_model',
+  head.push('judge_status', 'judge_error', 'judge_model',
             'judge_prompt_version', 'rules_version');
   return head;
 }
@@ -282,8 +283,32 @@ function submit(p) {
     ok: true, rowId: rowId, testId: test.id, map: map,
     judge: verdict.ok ? verdict.judge : null,
     judge_status: verdict.ok ? 'ok' : 'error',
-    judge_error: verdict.ok ? '' : verdict.error,
-    feedback: verdict.ok ? (verdict.judge.feedback || '') : ''
+    judge_error: verdict.ok ? '' : verdict.error
+  };
+}
+
+/* Вердикт судьи по одной способности — в столбцы таблицы. Разбор по границам
+   пишется читаемым текстом: по нему методолог проверяет судью, не открывая JSON. */
+function judgeFields(got) {
+  if (!got) {
+    return { status: '', level: '', options: '', flag: '', slogan: '',
+             quote: '', takeaway: '', gates: '', why: '' };
+  }
+  var g = got.gates || {};
+  var gates = ['2', '3', '4', '5'].map(function (k) {
+    var x = g[k] || {};
+    return (Number(k) - 1) + '→' + k + ': ' + (x.s || '—') + (x.q ? ' «' + x.q + '»' : '');
+  }).join('\n');
+  return {
+    status: got.status || '',
+    level: got.level || '',
+    options: (got.options || []).join(', '),
+    flag: got.flag ? 'да' : '',
+    slogan: got.slogan ? 'да' : '',
+    quote: got.quote || '',
+    takeaway: got.takeaway || '',
+    gates: gates,
+    why: ''
   };
 }
 
@@ -321,24 +346,11 @@ function writeResponse(d) {
 
   CONFIG.abilities.forEach(function (a) {
     var got = d.verdict.ok && d.verdict.judge[a.id] ? d.verdict.judge[a.id] : null;
-    v[a.id + '_level'] = got ? got.level : '';
-    v[a.id + '_flag'] = got ? (got.flag ? 'да' : '') : '';
-    v[a.id + '_slogan'] = got ? (got.slogan ? 'да' : '') : '';
-    v[a.id + '_quote'] = got ? (got.quote || '') : '';
-    v[a.id + '_why'] = got ? (got.why || '') : '';
-  });
-
-  // дополнительные способности — одной колонкой, их состав меняется от ответа к ответу
-  var extra = (d.verdict.ok && d.verdict.judge.extra) ? d.verdict.judge.extra : {};
-  var parts = [];
-  for (var code in extra) {
-    if (Object.prototype.hasOwnProperty.call(extra, code)) {
-      parts.push(code + ' L' + extra[code].level);
+    var f = judgeFields(got);
+    for (var name in f) {
+      if (Object.prototype.hasOwnProperty.call(f, name)) v[a.id + '_' + name] = f[name];
     }
-  }
-  v.extra = parts.join(', ');
-
-  v.feedback = d.verdict.ok ? (d.verdict.judge.feedback || '') : '';
+  });
   v.judge_status = d.verdict.ok ? 'ok' : 'error';
   v.judge_error = d.verdict.ok ? '' : String(d.verdict.error || '');
   v.judge_model = d.verdict.model || '';
@@ -424,15 +436,18 @@ function readResponse(column, value) {
   var status = String(col('judge_status') || '');
   var judge = null;
   if (status === 'ok') {
-    judge = { feedback: String(col('feedback') || ''), extra: {} };
+    judge = {};
     CONFIG.abilities.forEach(function (a) {
       var lvl = Number(col(a.id + '_level') || 0);
-      if (lvl >= 1 && lvl <= 5) {
-        judge[a.id] = { level: lvl, flag: String(col(a.id + '_flag')) === 'да',
-                        slogan: String(col(a.id + '_slogan')) === 'да',
-                        quote: String(col(a.id + '_quote') || ''),
-                        why: String(col(a.id + '_why') || '') };
-      }
+      var review = String(col(a.id + '_status') || '') === 'ручная проверка';
+      if (!review && !(lvl >= 1 && lvl <= 5)) return;
+      var takeaway = String(col(a.id + '_takeaway') || col(a.id + '_why') || '');
+      judge[a.id] = { status: review ? 'ручная проверка' : 'оценено',
+                      level: review ? null : lvl,
+                      flag: String(col(a.id + '_flag')) === 'да',
+                      slogan: String(col(a.id + '_slogan')) === 'да',
+                      quote: String(col(a.id + '_quote') || ''),
+                      takeaway: takeaway, why: takeaway };
     });
   }
 
@@ -441,8 +456,7 @@ function readResponse(column, value) {
     stage: String(col('stage') || ''), testId: test.id,
     map: buildMap(CONFIG.skills, test, orderings, judge),
     judge: judge, judge_status: status || 'error',
-    judge_error: String(col('judge_error') || ''),
-    feedback: judge ? (judge.feedback || '') : ''
+    judge_error: String(col('judge_error') || '')
   };
 }
 
@@ -520,13 +534,11 @@ function rejudge(p) {
 
   CONFIG.abilities.forEach(function (a) {
     var got = verdict.ok && verdict.judge[a.id] ? verdict.judge[a.id] : null;
-    set(sh, rowNum, head, a.id + '_level', got ? got.level : '');
-    set(sh, rowNum, head, a.id + '_flag', got ? (got.flag ? 'да' : '') : '');
-    set(sh, rowNum, head, a.id + '_slogan', got ? (got.slogan ? 'да' : '') : '');
-    set(sh, rowNum, head, a.id + '_quote', got ? (got.quote || '') : '');
-    set(sh, rowNum, head, a.id + '_why', got ? (got.why || '') : '');
+    var f = judgeFields(got);
+    for (var name in f) {
+      if (Object.prototype.hasOwnProperty.call(f, name)) set(sh, rowNum, head, a.id + '_' + name, f[name]);
+    }
   });
-  set(sh, rowNum, head, 'feedback', verdict.ok ? (verdict.judge.feedback || '') : '');
   set(sh, rowNum, head, 'judge_status', verdict.ok ? 'ok' : 'error');
   set(sh, rowNum, head, 'judge_error', verdict.ok ? '' : String(verdict.error || ''));
   set(sh, rowNum, head, 'judge_model', verdict.model || '');
@@ -542,8 +554,7 @@ function rejudge(p) {
     ok: true, map: buildMap(CONFIG.skills, test, orderings, verdict.ok ? verdict.judge : null),
     judge: verdict.ok ? verdict.judge : null,
     judge_status: verdict.ok ? 'ok' : 'error',
-    judge_error: verdict.ok ? '' : verdict.error,
-    feedback: verdict.ok ? (verdict.judge.feedback || '') : ''
+    judge_error: verdict.ok ? '' : verdict.error
   };
 }
 
@@ -606,7 +617,7 @@ function summarize(values, code, testId) {
   var skills = CONFIG.skills.map(function (sk) {
     return { id: sk.id, name: sk.name, ability: sk.ability,
              buckets: [0, 0, 0], zones: [0, 0, 0], levels: [0, 0, 0, 0, 0],
-             judged: 0, sum: 0 };
+             judged: 0, review: 0, sum: 0 };
   });
 
   var count = 0;
@@ -626,6 +637,10 @@ function summarize(values, code, testId) {
       var zi = CONFIG.zones.indexOf(String(values[i][head.indexOf(sk.id + '_zone')] || ''));
       if (zi >= 0) skills[k].zones[zi]++;
       if (lvl) { skills[k].levels[lvl - 1]++; skills[k].judged++; }
+      else if (sk.ability &&
+               String(values[i][head.indexOf(sk.ability + '_status')] || '') === 'ручная проверка') {
+        skills[k].review++;
+      }
     });
   }
 

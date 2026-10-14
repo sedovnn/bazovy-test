@@ -3,9 +3,14 @@
    Промпт свой на каждый тест — судья читает контекст конкретного кейса.
    Берётся из judge_prompts.gs, собранного из spec/ дословно.
 
-   Спека («Как прогонять»): system = весь файл промпта,
-   user = <ответ1>…</ответ1>\n<ответ2>…</ответ2>, max_tokens 2000, температура 0,
-   при неразборчивом JSON — один повтор с добавлением «Ответь только JSON».
+   system = промпт целиком: обёртка теста + профиль мини-формата + методология v8.
+   user = <ответ1>…</ответ1>\n<ответ2>…</ответ2>.
+   При неразборчивом JSON — один повтор с добавлением «Ответь только JSON».
+
+   Выдача по профилю мини-формата: по каждому из 4 поднавыков — 4 границы
+   лестницы («да» / «нет» / «спорно» с цитатой), статус «оценено» или
+   «ручная проверка», уровень или null, вывод для человека в 1–2 предложения.
+   Лимит ответа поднят до 4000: разбор по границам длиннее прежнего.
 
    ⚠ РАСХОЖДЕНИЕ СО СПЕКОЙ, ВЫНУЖДЕННОЕ. «Температуры 0» на этой модели нет:
    Sonnet 5 отвечает «400 `temperature` is deprecated for this model» —
@@ -18,7 +23,7 @@
 var ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 var ANTHROPIC_VERSION = '2023-06-01';
 var DEFAULT_MODEL = 'claude-sonnet-5';   // как у судьи Искры
-var MAX_TOKENS = 2000;
+var MAX_TOKENS = 4000;
 
 function judgeModel() {
   return PROP.getProperty('MODEL') || DEFAULT_MODEL;
@@ -115,8 +120,15 @@ function callAnthropic(key, model, system, user) {
   return { ok: true, text: text };
 }
 
-/* Разбирает вердикт. Спека требует голый JSON, но на всякий случай снимаем
-   markdown-ограждение и берём самый внешний объект. */
+var GATE_KEYS = ['2', '3', '4', '5'];   // границы 1→2, 2→3, 3→4, 4→5
+var REVIEW = 'ручная проверка';
+
+/* Разбирает вердикт. Ждём голый JSON, но на всякий случай снимаем
+   markdown-ограждение и берём самый внешний объект.
+
+   Годится, только если есть все 4 поднавыка. У «оценено» обязателен уровень
+   1–5; у «ручной проверки» уровня нет — так требует методология v8
+   (правила оценщика 9 и 13): предварительная оценка не выдаётся за окончательную. */
 function parseVerdict(raw) {
   var text = String(raw || '').trim();
 
@@ -133,36 +145,59 @@ function parseVerdict(raw) {
   try { obj = JSON.parse(text); } catch (e) { return null; }
   if (!obj || typeof obj !== 'object') return null;
 
-  // Годится, только если есть все четыре основные способности с уровнем 1–5.
-  var out = { feedback: String(obj.feedback || ''), extra: {} };
+  var out = {};
   for (var i = 0; i < CONFIG.abilities.length; i++) {
     var id = CONFIG.abilities[i].id;
     var got = obj[id];
     if (!got || typeof got !== 'object') return null;
-    var level = Number(got.level);
-    if (!(level >= 1 && level <= 5)) return null;
-    out[id] = {
-      level: Math.round(level),
-      quote: String(got.quote === undefined ? '' : got.quote),
-      why: String(got.why === undefined ? '' : got.why),
-      flag: got.flag === true,
-      slogan: got.slogan === true
-    };
-  }
 
-  // Дополнительные способности — только с явным маркером, могут отсутствовать.
-  if (obj.extra && typeof obj.extra === 'object') {
-    for (var code in obj.extra) {
-      if (!Object.prototype.hasOwnProperty.call(obj.extra, code)) continue;
-      var e = obj.extra[code];
-      var lv = e && Number(e.level);
-      if (lv >= 1 && lv <= 5) {
-        out.extra[code] = { level: Math.round(lv), quote: String((e && e.quote) || '') };
+    var src = (got.gates && typeof got.gates === 'object') ? got.gates : {};
+    var gates = {}, best = '';
+    for (var k = 0; k < GATE_KEYS.length; k++) {
+      var g = src[GATE_KEYS[k]] || {};
+      var st = gateStatus(g.s);
+      gates[GATE_KEYS[k]] = { s: st, q: String(g.q === undefined ? '' : g.q) };
+      // цитата верхней пройденной границы — её и показываем как подтверждение
+      if (st === 'да' && g.q) best = String(g.q);
+    }
+
+    var review = String(got.status || '').toLowerCase().indexOf('ручн') >= 0;
+    var level = null;
+    if (!review) {
+      level = Number(got.level);
+      if (!(level >= 1 && level <= 5)) return null;
+      level = Math.round(level);
+    }
+
+    var options = [];
+    if (review && got.options && got.options.length) {
+      for (var o = 0; o < got.options.length; o++) {
+        var n = Number(got.options[o]);
+        if (n >= 1 && n <= 5 && options.indexOf(n) < 0) options.push(Math.round(n));
       }
     }
-  }
 
+    var takeaway = String(got.takeaway === undefined ? '' : got.takeaway);
+    out[id] = {
+      status: review ? REVIEW : 'оценено',
+      level: level,
+      options: options,
+      gates: gates,
+      flag: got.flag === true,
+      slogan: got.slogan === true,
+      quote: best,
+      takeaway: takeaway,
+      why: takeaway      // прежнее поле: старые экраны читают его
+    };
+  }
   return out;
+}
+
+function gateStatus(s) {
+  var v = String(s || '').trim().toLowerCase();
+  if (v.indexOf('да') === 0) return 'да';
+  if (v.indexOf('спорн') === 0) return 'спорно';
+  return 'нет';
 }
 
 /* Прогон одной пары ответов из редактора — проверить ключ, модель и промпт.

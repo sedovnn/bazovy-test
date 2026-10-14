@@ -622,6 +622,21 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 .lvl i.on { background: var(--accent); border-color: var(--accent); }
 
+/* Отчёт на карте: имя навыка и до двух строк с короткой меткой слева. */
+.report { margin: 32px 0 0; }
+.report .skill { padding: 16px 0; }
+.rep-line { margin: 10px 0 0; font-size: var(--fs-read); line-height: 1.5; }
+.rep-tag {
+  display: block; margin-bottom: 2px;
+  font-size: var(--fs-util); font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted-soft);
+}
+.rep-line.is-open { color: var(--muted); }
+
+.disclaimer {
+  margin: 24px 0 0; font-size: var(--fs-dense); color: var(--muted);
+}
+
 .gap-line {
   margin: 24px 0 0;
   padding: 16px;

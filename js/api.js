@@ -167,7 +167,6 @@ var MOCK = {
       return MOCK.delay(2200, {
         ok: true, rowId: row.rowId, testId: p.testId, map: map,
         judge: row.judge, judge_status: row.judge_status,
-        feedback: fail ? '' : judge.feedback
       });
     }
 
@@ -181,7 +180,7 @@ var MOCK = {
       db.responses[idx].map = buildMap(CONFIG.skills, TESTMETA[db.responses[idx].testId],
                                        db.responses[idx].orderings || {}, j);
       MOCK.save(db);
-      return MOCK.delay(1800, { ok: true, judge: j, judge_status: 'ok', feedback: j.feedback });
+      return MOCK.delay(1800, { ok: true, judge: j, judge_status: 'ok' });
     }
 
     if (action === 'result') {
@@ -191,8 +190,7 @@ var MOCK = {
       }
       if (!found) return Promise.reject(new Error('no_result'));
       return MOCK.delay(300, { ok: true, repeat: true, rowId: found.rowId, map: found.map,
-                               judge: found.judge, judge_status: found.judge_status,
-                               feedback: found.judge ? found.judge.feedback : '' });
+                               judge: found.judge, judge_status: found.judge_status });
     }
 
     if (action === 'summary') {
@@ -222,24 +220,30 @@ var MOCK = {
   /* Имитация судьи: уровни выводятся из длины текста, чтобы карта менялась
      от ответа к ответу и было что показать на экране. */
   judge: function (text) {
+    /* Имитация судьи в формате профиля мини-формата: уровни выводятся из длины
+       текста, чтобы карта менялась от ответа к ответу. Картина будущего на
+       длинных ответах уходит в «ручную проверку» — чтобы было видно и это. */
     var words = (text || '').trim().split(/\s+/).filter(Boolean).length;
     var base = words < 30 ? 1 : words < 60 ? 2 : words < 110 ? 3 : 4;
     var out = {};
     var ids = CONFIG.abilities.map(function (a) { return a.id; });
     for (var i = 0; i < ids.length; i++) {
       var lv = Math.max(1, Math.min(5, base + ((words + i * 7) % 3) - 1));
+      var review = ids[i] === 'МК-1' && words >= 60;
+      var gates = {};
+      ['2', '3', '4', '5'].forEach(function (k) {
+        gates[k] = Number(k) <= lv ? { s: 'да', q: 'фрагмент (мок)' } : { s: 'нет' };
+      });
       out[ids[i]] = {
-        level: lv,
-        quote: 'фрагмент ответа участника (мок)',
-        why: 'Уровень ' + lv + ' пройден, следующий — нет (мок).',
-        flag: false,
-        slogan: false
+        status: review ? 'ручная проверка' : 'оценено',
+        level: review ? null : lv, options: review ? [lv, lv + 1] : [],
+        gates: gates, flag: false, slogan: false, quote: 'фрагмент (мок)',
+        takeaway: review
+          ? 'В ответе есть новое место компании; неясно, меняется ли способ зарабатывать (мок).'
+          : 'Это вывод-заглушка: в ответе видно направление, следующий шаг — назвать, от чего откажетесь (мок).'
       };
+      out[ids[i]].why = out[ids[i]].takeaway;
     }
-    out.extra = words > 60 ? { 'АК-1': { level: 4, quote: 'фрагмент (мок)' } } : {};
-    out.feedback = 'Это моковая обратная связь: настоящую пишет судья по промпту из spec/. ' +
-                   'В тексте видно направление, но не хватает явного отказа от одного из ' +
-                   'предложений и связи этапов между собой.';
     return out;
   },
 
@@ -248,7 +252,7 @@ var MOCK = {
     var skills = CONFIG.skills.map(function (sk) {
       return { id: sk.id, name: sk.name, ability: sk.ability,
                buckets: [0, 0, 0], zones: [0, 0, 0], levels: [0, 0, 0, 0, 0],
-               judged: 0, mean: 0 };
+               judged: 0, review: 0, mean: 0 };
     });
     var sums = [0, 0, 0, 0, 0];
     for (var i = 0; i < rows.length; i++) {
@@ -261,6 +265,7 @@ var MOCK = {
         sums[j] += value;
         skills[j].zones[r.zoneIndex]++;
         if (r.level) { skills[j].levels[r.level - 1]++; skills[j].judged++; }
+        else if (r.review) skills[j].review++;
       }
     }
     skills.forEach(function (sk, k) { sk.mean = rows.length ? sums[k] / rows.length : 0; });
