@@ -65,7 +65,8 @@ function вердикт(level, статусы, цитата, доп) {
     gates[k] = статусы[i] === 'нет' ? { s: 'нет' } : { s: статусы[i], q: цитата + ' ' + k };
   });
   return Object.assign({ gates, status: 'оценено', level, options: [], flag: false, slogan: false,
-                         takeaway: 'Вы назвали ' + цитата + '. Следующий шаг — дальше.' }, доп || {});
+                         has: 'Вы назвали ' + цитата + '.', next: 'Покажите, что дальше.',
+                         unclear: 'Неясно, ' + цитата + '.' }, доп || {});
 }
 
 let fetchMode = 'ok';          // ok | спорно | http500 | мусор | сеть
@@ -188,7 +189,8 @@ check('уровень ГА-1 доехал', r1.map.skills[1].level === 2);
 check('флаг ПР-1 сохранён', r1.map.skills[2].flag === true);
 check('признак лозунга сохранён', r1.map.skills[4].slogan === true);
 check('оценка шести способностей по тексту снята', r1.map.extra.length === 0);
-check('вывод для человека доехал', /Вы назвали/.test(r1.map.skills[1].takeaway));
+check('вывод собран из «что есть» и «дальше»',
+      r1.map.skills[1].takeaway === 'Вы назвали отказ. Покажите, что дальше.', r1.map.skills[1].takeaway);
 check('строка «в тесте выше» есть', r1.map.gaps.length > 0, JSON.stringify(r1.map.gaps));
 check('немонотонный ПР-1: L5 с флагом', r1.map.skills[2].level === 5 && r1.map.skills[2].flag === true);
 
@@ -210,11 +212,13 @@ fetchMode = 'спорно';
 const rr = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-спорно' });
 const буд = rr.map.skills.filter(sk => sk.ability === 'МК-1')[0];
 check('уровня нет', буд.level === null && буд.review === true, JSON.stringify(буд));
+check('при ручной проверке человек видит только «что есть»', буд.takeaway === 'Вы назвали сервис.', буд.takeaway);
 check('полоса строится по расстановке', буд.value === буд.score / буд.max);
 const rowR = sheets['responses']._rows[sheets['responses']._rows.length - 1];
 check('в таблице «ручная проверка» и варианты',
       rowR[h.indexOf('МК-1_status')] === 'ручная проверка' && rowR[h.indexOf('МК-1_options')] === '3, 4' &&
       rowR[h.indexOf('МК-1_level')] === '');
+check('объяснение спорного — в таблицу для методолога', rowR[h.indexOf('МК-1_unclear')] === 'Неясно, сервис.');
 const reopen = post({ action: 'result', rowId: rr.rowId });
 const буд2 = reopen.map.skills.filter(sk => sk.ability === 'МК-1')[0];
 check('при повторном открытии статус сохранился', буд2.review === true && буд2.level === null);

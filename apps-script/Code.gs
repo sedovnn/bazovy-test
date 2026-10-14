@@ -132,7 +132,8 @@ function responseHeader() {
 
   CONFIG.abilities.forEach(function (a) {
     head.push(a.id + '_status', a.id + '_level', a.id + '_options', a.id + '_flag',
-              a.id + '_slogan', a.id + '_quote', a.id + '_takeaway', a.id + '_gates');
+              a.id + '_slogan', a.id + '_quote', a.id + '_takeaway', a.id + '_unclear',
+              a.id + '_gates');
   });
   head.push('judge_status', 'judge_error', 'judge_model',
             'judge_prompt_version', 'rules_version');
@@ -292,7 +293,7 @@ function submit(p) {
 function judgeFields(got) {
   if (!got) {
     return { status: '', level: '', options: '', flag: '', slogan: '',
-             quote: '', takeaway: '', gates: '', why: '' };
+             quote: '', takeaway: '', unclear: '', gates: '', why: '' };
   }
   var g = got.gates || {};
   var gates = ['2', '3', '4', '5'].map(function (k) {
@@ -307,6 +308,7 @@ function judgeFields(got) {
     slogan: got.slogan ? 'да' : '',
     quote: got.quote || '',
     takeaway: got.takeaway || '',
+    unclear: got.unclear || '',
     gates: gates,
     why: ''
   };

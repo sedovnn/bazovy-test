@@ -177,7 +177,16 @@ function parseVerdict(raw) {
       }
     }
 
-    var takeaway = String(got.takeaway === undefined ? '' : got.takeaway);
+    /* Вывод для человека судья пишет двумя полями: «что есть» и «дальше»
+       (или «что неясно» при ручной проверке). Разделение нарочное: одной
+       фразой модель стабильно съезжала в «чтобы выйти на следующий уровень»
+       и в похвалы. Старое поле takeaway тоже принимаем. */
+    function txt(x) { return String(x === undefined || x === null ? '' : x).trim(); }
+    // При ручной проверке человек видит только «что есть»; объяснение, что
+    // спорно, — для методолога, в таблицу.
+    var parts = [txt(got.has), review ? '' : txt(got.next)].filter(function (x) { return x; });
+    var takeaway = parts.length ? parts.join(' ') : txt(got.takeaway);
+    var unclear = review ? txt(got.unclear) : '';
     out[id] = {
       status: review ? REVIEW : 'оценено',
       level: level,
@@ -187,6 +196,7 @@ function parseVerdict(raw) {
       slogan: got.slogan === true,
       quote: best,
       takeaway: takeaway,
+      unclear: unclear,
       why: takeaway      // прежнее поле: старые экраны читают его
     };
   }
