@@ -407,11 +407,13 @@ function readResponse(column, value) {
     return c >= 0 ? row[c] : '';
   }
 
-  /* Строка от прежней версии теста: подставлять сегодняшний тест нельзя —
-     метки реплик другие, карта собралась бы из нулей и выглядела бы как
-     результат человека. Лучше честно сказать, что карты нет. */
+  /* Строка от прежней версии теста. Пересчитывать её сегодняшним ключом
+     нельзя — метки реплик другие, вышли бы нули. Но пересчитывать и не надо:
+     всё, что тогда посчитали, лежит в самой строке. Отдаём сохранённое
+     и помечаем legacy, чтобы карту не рисовали по нынешней шкале:
+     там баллы за ситуацию шли до 4, а не до 3, и полосы были бы враньём. */
   var test = testById(String(col('test_id') || ''));
-  if (!test) return { ok: false, error: 'old_test' };
+  if (!test) return legacyResponse(col);
 
   var orderings = {};
   test.situations.forEach(function (sid) {
@@ -444,6 +446,46 @@ function readResponse(column, value) {
   };
 }
 
+/* Ответ по строке, записанной прежней версией теста: только сохранённое,
+   ничего не пересчитывается. */
+function legacyResponse(col) {
+  var status = String(col('judge_status') || '');
+
+  var skills = CONFIG.skills.map(function (sk) {
+    var row = { id: sk.id, name: sk.name,
+                score: Number(col(sk.id + '_score') || 0),
+                zone: String(col(sk.id + '_zone') || ''),
+                ability: sk.ability || null,
+                level: null, flag: false, slogan: false, quote: '', why: '' };
+    if (sk.ability) {
+      var lvl = Number(col(sk.ability + '_level') || 0);
+      if (lvl >= 1 && lvl <= 5) {
+        row.level = lvl;
+        row.flag = String(col(sk.ability + '_flag')) === 'да';
+        row.slogan = String(col(sk.ability + '_slogan')) === 'да';
+        row.quote = String(col(sk.ability + '_quote') || '');
+        row.why = String(col(sk.ability + '_why') || '');
+      }
+    }
+    return row;
+  });
+
+  return {
+    ok: true, repeat: true, legacy: true,
+    rowId: String(col('row_id') || ''),
+    stage: String(col('stage') || ''),
+    testId: '',
+    testVersion: String(col('test_version') || ''),
+    judgePromptVersion: String(col('judge_prompt_version') || ''),
+    submittedAt: String(col('submitted_at') || ''),
+    durationSec: Number(col('duration_sec') || 0),
+    map: { skills: skills, perSituation: {}, gaps: [], extra: [] },
+    judge_status: status || 'error',
+    judge_error: String(col('judge_error') || ''),
+    feedback: String(col('feedback') || '')
+  };
+}
+
 /* ---------- повторная оценка ---------- */
 
 function rejudge(p) {
@@ -464,11 +506,13 @@ function rejudge(p) {
     return c >= 0 ? row[c] : '';
   }
 
-  /* Строка от прежней версии теста: подставлять сегодняшний тест нельзя —
-     метки реплик другие, карта собралась бы из нулей и выглядела бы как
-     результат человека. Лучше честно сказать, что карты нет. */
+  /* Строка от прежней версии теста. Пересчитывать её сегодняшним ключом
+     нельзя — метки реплик другие, вышли бы нули. Но пересчитывать и не надо:
+     всё, что тогда посчитали, лежит в самой строке. Отдаём сохранённое
+     и помечаем legacy, чтобы карту не рисовали по нынешней шкале:
+     там баллы за ситуацию шли до 4, а не до 3, и полосы были бы враньём. */
   var test = testById(String(col('test_id') || ''));
-  if (!test) return { ok: false, error: 'old_test' };
+  if (!test) return legacyResponse(col);
   var texts = test.free.map(function (q) { return String(col(q.id + '_text') || ''); });
   if (!texts.join('').trim()) return { ok: false, error: 'В строке нет свободных ответов' };
 
