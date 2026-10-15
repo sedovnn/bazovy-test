@@ -155,6 +155,7 @@ var MOCK = {
         stage: p.stage || '',
         testId: p.testId,
         orderings: p.orderings,
+        answers: p.answers || {},
         submitted_at: new Date().toISOString(),
         duration_sec: p.durationSec || 0,
         map: map,
@@ -212,6 +213,29 @@ var MOCK = {
                    summary: MOCK.summary(rows2, sess.testId) });
       });
       return MOCK.delay(300, { ok: true, title: title, sessions: out });
+    }
+
+    if (action === 'quotes') {
+      var sess = db.sessions[p.code] || {};
+      if (sess.identify) return MOCK.delay(200, { ok: true, named: true, abilities: [] });
+      var meta = CONFIG.tests.filter(function (t) { return t.id === sess.testId; })[0] || { free: [] };
+      var list = CONFIG.abilities.map(function (a) {
+        var q = meta.free.filter(function (f) { return f.abilities.indexOf(a.id) >= 0; })[0];
+        var sk = CONFIG.skills.filter(function (s) { return s.ability === a.id; })[0] || {};
+        var items = db.responses.filter(function (r) { return r.session_code === p.code && q && r.answers; })
+          .map(function (r) {
+            var j = r.judge && r.judge[a.id];
+            return { text: r.answers[q.id] || '', level: j && j.level || null,
+                     review: !!(j && j.status === 'ручная проверка'),
+                     words: String(r.answers[q.id] || '').split(/\s+/).length };
+          })
+          .filter(function (x) { return x.text.trim(); })
+          .sort(function (x, y) { return (y.level || 0) - (x.level || 0); });
+        var strong = items.filter(function (x) { return x.level >= 4; });
+        if (strong.length > 1) strong.reduce(function (m, x) { return x.words < m.words ? x : m; }).shortestStrong = true;
+        return { id: a.id, name: a.name, skill: sk.name || '', items: items };
+      });
+      return MOCK.delay(300, { ok: true, named: false, abilities: list });
     }
 
     return Promise.reject(new Error('Неизвестное действие: ' + action));

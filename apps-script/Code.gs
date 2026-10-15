@@ -43,6 +43,7 @@ function doPost(e) {
       case 'summary':       return json(summary(payload));
       case 'compare':       return json(compare(payload));
       case 'rejudge':       return json(rejudge(payload));
+      case 'quotes':        return json(quotes(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
     }
   } catch (err) {
@@ -185,12 +186,22 @@ function createSession(p) {
   var stage = stageById(stageId);
   if (!stage) return { ok: false, error: 'Неизвестный этап: ' + stageId };
 
-  /* Привязка теста к этапу жёсткая: «до» и «после» обязаны быть разными тестами,
-     правила запрещают давать один и тот же дважды. Выбор есть только у этапа
-     без пары — там тест называет ведущий. */
+  /* Кейс на любом этапе выбирает ведущий. Правила запрещают давать один кейс
+     дважды, поэтому «до» и «после» одной группы (одно название) — разные кейсы. */
   var testId = stage.choose ? String(p.testId || '') : stage.test;
   var test = testById(testId);
-  if (!test) return { ok: false, error: 'Не выбран тест для этапа «' + stage.name + '»' };
+  if (!test) return { ok: false, error: 'Не выбран кейс для этапа «' + stage.name + '»' };
+  var pair = { before: 'after', after: 'before' }[stageId];
+  if (pair && title.trim()) {
+    var clash = sheet(SHEET_SESSIONS).getDataRange().getValues().slice(1).filter(function (row) {
+      return String(row[1] || '').trim() === title.trim() && String(row[2]) === pair &&
+             String(row[3]) === testId;
+    });
+    if (clash.length) {
+      return { ok: false, error: 'У группы «' + title.trim() + '» этот кейс уже был на этапе «' +
+               stageById(pair).name + '». Выберите другой: один кейс дважды не даётся.' };
+    }
+  }
 
   // Именная сессия — решение ведущего на каждый прогон, а не свойство продукта.
   var identify = p.identify === true || p.identify === 'да';
@@ -270,7 +281,7 @@ function submit(p) {
   // 2. Судья. Его падение не должно ронять отправку.
   var texts = test.free.map(function (q) { return String(answers[q.id] || ''); });
   var verdict = { ok: false, judge: null, error: 'не вызывался', model: '', promptVersion: '' };
-  if (texts.join('').trim()) verdict = judgeAnswers(test.id, texts[0], texts[1]);
+  if (texts.join('').trim()) verdict = judgeAnswers(test.id, texts);
 
   if (verdict.ok) map = buildMap(CONFIG.skills, test, orderings, verdict.judge);
 
@@ -538,7 +549,7 @@ function rejudge(p) {
   var texts = test.free.map(function (q) { return String(col(q.id + '_text') || ''); });
   if (!texts.join('').trim()) return { ok: false, error: 'В строке нет свободных ответов' };
 
-  var verdict = judgeAnswers(test.id, texts[0], texts[1]);
+  var verdict = judgeAnswers(test.id, texts);
 
   CONFIG.abilities.forEach(function (a) {
     var got = verdict.ok && verdict.judge[a.id] ? verdict.judge[a.id] : null;
@@ -613,6 +624,54 @@ function compare(p) {
   out.sort(function (a, b) { return order.indexOf(a.stage) - order.indexOf(b.stage); });
 
   return { ok: true, title: title, sessions: out };
+}
+
+/* Комментарии группы для разбора у ведущего. По каждой из 4 способностей —
+   свои комментарии участников, на которые она нацелена, с уровнем судьи или
+   «уточняется». Ни имён, ни кодов строк: только текст. В именной сессии вывода
+   нет — так обещано участникам в вводной. */
+function quotes(p) {
+  var code = String(p.code || '').toUpperCase();
+  var session = findSession(code);
+  if (!session) return { ok: false, error: 'no_session' };
+  if (session.identify) return { ok: true, named: true, abilities: [] };
+  var test = testById(session.testId);
+  if (!test) return { ok: true, abilities: [] };
+
+  var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var codeCol = head.indexOf('session_code');
+
+  var out = CONFIG.abilities.map(function (a) {
+    var q = test.free.filter(function (f) { return f.abilities.indexOf(a.id) >= 0; })[0];
+    return { id: a.id, name: a.name, skill: (CONFIG.skills.filter(function (s) {
+               return s.ability === a.id; })[0] || {}).name || '',
+             question: q ? q.id : '', items: [] };
+  });
+
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][codeCol] !== code) continue;
+    out.forEach(function (a) {
+      if (!a.question) return;
+      var text = String(values[i][head.indexOf(a.question + '_text')] || '').trim();
+      if (!text) return;
+      var lvl = Number(values[i][head.indexOf(a.id + '_level')] || 0);
+      var review = String(values[i][head.indexOf(a.id + '_status')] || '') === 'ручная проверка';
+      a.items.push({ text: text, level: lvl >= 1 && lvl <= 5 ? lvl : null, review: review,
+                     words: countWords(text) });
+    });
+  }
+
+  // по уровню вниз; «уточняется» и без оценки — в конце
+  out.forEach(function (a) {
+    a.items.sort(function (x, y) { return (y.level || 0) - (x.level || 0); });
+    var strong = a.items.filter(function (x) { return x.level >= 4; });
+    if (strong.length > 1) {
+      var shortest = strong.reduce(function (m, x) { return x.words < m.words ? x : m; });
+      shortest.shortestStrong = true;
+    }
+  });
+  return { ok: true, named: false, abilities: out };
 }
 
 /* Сводка по одному коду сессии из уже прочитанного листа ответов. */

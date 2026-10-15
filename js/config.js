@@ -1,21 +1,171 @@
-/* СОБРАНО АВТОМАТИЧЕСКИ из spec/ (правила_тестирования_v1.1.md и файлы тестов).
+/* СОБРАНО АВТОМАТИЧЕСКИ из spec/ (правила_тестирования_v1.2.md и вычитка_6_компаний.md).
    Руками не править: изменения затрёт следующий прогон
    tools/собрать_тесты.py. Правится спека, потом скрипт. */
 
 var CONFIG = {
-  "rules": "1.1",
+  "rules": "1.2",
   "tests": [
     {
-      "id": "v1.5",
-      "name": "Nike · Starbucks · Novo",
-      "file": "data/test_v1_5.json",
-      "v": "a64d239f"
+      "id": "intel-1.0",
+      "name": "Intel",
+      "file": "data/case_intel.json",
+      "v": "edb0e6f7",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
     },
     {
-      "id": "v2.4",
-      "name": "Intel · bp · Stellantis",
-      "file": "data/test_v2_4.json",
-      "v": "ed848992"
+      "id": "nike-1.0",
+      "name": "Nike",
+      "file": "data/case_nike.json",
+      "v": "e5398e28",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "starbucks-1.0",
+      "name": "Starbucks",
+      "file": "data/case_starbucks.json",
+      "v": "5c4248c0",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bp-1.0",
+      "name": "bp",
+      "file": "data/case_bp.json",
+      "v": "a30f6783",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stellantis-1.0",
+      "name": "Stellantis",
+      "file": "data/case_stellantis.json",
+      "v": "179b9813",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "novo-1.0",
+      "name": "Novo",
+      "file": "data/case_novo.json",
+      "v": "7b04116d",
+      "free": [
+        {
+          "id": "q1",
+          "abilities": [
+            "ПП-1",
+            "ПР-1"
+          ]
+        },
+        {
+          "id": "q2",
+          "abilities": [
+            "ГА-1"
+          ]
+        },
+        {
+          "id": "q3",
+          "abilities": [
+            "МК-1"
+          ]
+        }
+      ]
     }
   ],
   "skills": [
@@ -162,14 +312,14 @@ var CONFIG = {
     {
       "id": "before",
       "name": "До потока",
-      "test": "v1.5",
-      "choose": false
+      "test": null,
+      "choose": true
     },
     {
       "id": "after",
       "name": "После потока",
-      "test": "v2.4",
-      "choose": false
+      "test": null,
+      "choose": true
     },
     {
       "id": "single",

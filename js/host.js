@@ -53,15 +53,17 @@
     syncStage();
   }
 
-  /* У «до» и «после» тест привязан жёстко: один и тот же тест дважды давать
-     нельзя. Выбор есть только у этапа без пары. */
+  /* Кейс выбирает ведущий на любом этапе. Один кейс дважды одной группе
+     давать нельзя — это проверяет бэкенд при создании сессии. */
   function syncStage() {
     var stage = stageById($('stageInput').value);
     if (!stage) return;
     $('testRow').classList.toggle('hidden', !stage.choose);
+    var paired = stage.id === 'before' || stage.id === 'after';
     $('stageNote').textContent = stage.choose
-      ? 'Тест выбираете вы — берите любой из двух.'
-      : 'Тест для этого этапа задан: ' + testName(stage.test) + '.';
+      ? (paired ? 'Кейс выбираете Вы. На «до» и «после» одной группы — разные кейсы.'
+                : 'Кейс выбираете Вы — любой из шести.')
+      : 'Кейс для этого этапа задан: ' + testName(stage.test) + '.';
   }
 
   /* ---- живой экран ---- */
@@ -88,6 +90,78 @@
     if (timer) clearInterval(timer);
     timer = setInterval(refresh, REFRESH_MS);
   }
+
+  /* ---- комментарии группы ---- */
+
+  function loadQuotes() {
+    $('quotesBtn').disabled = true;
+    $('quotesBtn').textContent = 'Загружаем…';
+    API.call('quotes', { code: code }).then(function (res) {
+      var box = $('quotesList');
+      box.innerHTML = '';
+      if (res.named) {
+        box.innerHTML = '<p class="util">Сессия именная — комментарии на экран не выводятся.</p>';
+        return;
+      }
+      var any = false;
+      (res.abilities || []).forEach(function (a) {
+        if (!a.items.length) return;
+        any = true;
+        var d = document.createElement('details');
+        d.className = 'quotes-skill';
+        var s = document.createElement('summary');
+        s.textContent = a.skill + ' · ' + a.name + ' — ' + a.items.length;
+        d.appendChild(s);
+        var ul = document.createElement('ul');
+        ul.className = 'quotes';
+        a.items.forEach(function (it) {
+          var li = document.createElement('li');
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'quote-item';
+          var lvl = document.createElement('span');
+          lvl.className = 'quote-lvl';
+          lvl.textContent = it.level ? 'уровень ' + it.level : (it.review ? 'уточняется' : 'без оценки');
+          b.appendChild(lvl);
+          if (it.shortestStrong) {
+            var tag = document.createElement('span');
+            tag.className = 'quote-tag';
+            tag.textContent = 'самый короткий из сильных';
+            b.appendChild(tag);
+          }
+          var tx = document.createElement('span');
+          tx.className = 'quote-text';
+          tx.textContent = it.text;
+          b.appendChild(tx);
+          b.addEventListener('click', function () { openQuote(a.skill, it.text); });
+          li.appendChild(b);
+          ul.appendChild(li);
+        });
+        d.appendChild(ul);
+        box.appendChild(d);
+      });
+      if (!any) box.innerHTML = '<p class="util">Пока нет ни одного комментария.</p>';
+    }).catch(function (err) {
+      $('quotesList').innerHTML = '';
+      var p = document.createElement('p');
+      p.className = 'err';
+      p.textContent = 'Не получилось загрузить: ' + err.message;
+      $('quotesList').appendChild(p);
+    }).then(function () {
+      $('quotesBtn').disabled = false;
+      $('quotesBtn').textContent = 'Обновить комментарии';
+    });
+  }
+
+  // На стене — только текст и навык: уровень не уезжает на экран.
+  function openQuote(skill, text) {
+    $('quoteFullSkill').textContent = skill;
+    $('quoteFullText').textContent = text;
+    $('quoteFull').classList.remove('hidden');
+    $('quoteFullClose').focus();
+  }
+
+  function closeQuote() { $('quoteFull').classList.add('hidden'); }
 
   /* ---- агрегат ---- */
 
@@ -314,6 +388,10 @@
     });
 
     $('refreshBtn').addEventListener('click', refresh);
+    $('quotesBtn').addEventListener('click', loadQuotes);
+    $('quoteFullClose').addEventListener('click', closeQuote);
+    $('quoteFull').addEventListener('click', function (e) { if (e.target === $('quoteFull')) closeQuote(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeQuote(); });
 
     $('copyLink').addEventListener('click', function () {
       var link = testLink(code);

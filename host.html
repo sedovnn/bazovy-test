@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20261015-1931" />
+<link rel="stylesheet" href="css/app.css?v=20261015-2119" />
 </head>
 <body class="op">
 
@@ -39,10 +39,9 @@
       <select class="op-field" id="stageInput"></select>
       <p class="util" style="margin:6px 0 0" id="stageNote"></p>
     </div>
-    <!-- Виден только у этапа без пары: у «до» и «после» тест задан жёстко,
-         один и тот же тест дважды давать нельзя. -->
+    <!-- Кейс выбирается на любом этапе; повтор кейса у группы ловит бэкенд. -->
     <div class="op-row hidden" id="testRow">
-      <label class="op-label" for="testInput">Какой тест показать</label>
+      <label class="op-label" for="testInput">Какой кейс показать</label>
       <select class="op-field" id="testInput"></select>
     </div>
     <div class="op-row">
@@ -87,7 +86,7 @@
       <div class="stat-row">
         <span class="stat"><b id="statCount">0</b><span>прошли тест</span></span>
         <span class="stat"><b id="statStage">—</b><span>этап</span></span>
-        <span class="stat"><b id="statTest">—</b><span>тест</span></span>
+        <span class="stat"><b id="statTest">—</b><span>кейс</span></span>
       </div>
 
       <!-- Одна картина на все пять навыков и по той же шкале, что видит участник.
@@ -129,9 +128,28 @@
         <span class="util" id="refreshNote">обновляется раз в 15 секунд</span>
       </p>
 
-      <p class="util" style="margin-top:24px">Имён и текстов ответов здесь нет — только сводка по группе.</p>
+      <p class="util" style="margin-top:24px">Имён здесь нет — только сводка по группе и, ниже, комментарии без авторов.</p>
     </div>
 
+  </div>
+
+  <!-- Комментарии группы для разбора. Список — только ведущему: уровень виден
+       ему одному. На экран выводится одна цитата за раз — текст и навык, без
+       имени и без уровня. В именной сессии вывода нет. -->
+  <div id="quotesBox" style="margin-top:48px">
+    <p class="kicker">Разбор</p>
+    <h2 class="op-h">Комментарии группы</h2>
+    <p class="util" style="margin:0 0 16px">Свои комментарии участников по каждому навыку, сверху — сильнее.
+      Нажмите на комментарий — он откроется на весь экран без имени и без уровня.
+      Пропускайте те, по которым узнают автора.</p>
+    <button class="btn btn-ghost btn-sm" id="quotesBtn" type="button">Показать комментарии</button>
+    <div id="quotesList"></div>
+  </div>
+
+  <div class="quote-full hidden" id="quoteFull" role="dialog" aria-modal="true" aria-labelledby="quoteFullText">
+    <p class="kicker" id="quoteFullSkill"></p>
+    <p class="quote-full-text" id="quoteFullText"></p>
+    <button class="btn btn-ghost btn-sm" id="quoteFullClose" type="button">Закрыть</button>
   </div>
 
   <!-- Сравнение «до/после». Появляется, когда у группы с тем же названием
@@ -147,9 +165,9 @@
 
 </main>
 
-<script src="js/config.js?v=20261015-1931"></script>
-<script src="js/qr.js?v=20261015-1931"></script>
-<script src="js/api.js?v=20261015-1931"></script>
-<script src="js/host.js?v=20261015-1931"></script>
+<script src="js/config.js?v=20261015-2119"></script>
+<script src="js/qr.js?v=20261015-2119"></script>
+<script src="js/api.js?v=20261015-2119"></script>
+<script src="js/host.js?v=20261015-2119"></script>
 </body>
 </html>

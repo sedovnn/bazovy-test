@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Карта стратегических навыков</title>
-<meta name="description" content="Базовый тест: 6 новостей о крупных компаниях, комментарии под ними и 2 коротких ответа своими словами." />
+<meta name="description" content="Базовый тест: новость о крупной компании, 6 веток комментариев под ней и 3 своих коротких комментария." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20261015-1931" />
+<link rel="stylesheet" href="css/app.css?v=20261015-2119" />
 </head>
 <body>
 
@@ -37,7 +37,7 @@
 <section class="frame enter" id="screenEnter">
   <p class="kicker">Вход</p>
   <h1 class="hero-h">Карта<br /><em>стратегических</em><br />навыков</h1>
-  <p class="lead read" style="margin-top:24px">Около пятнадцати минут: 6 новостей о крупных компаниях с комментариями под ними и 2 коротких ответа своими словами.</p>
+  <p class="lead read" style="margin-top:24px">Около пятнадцати минут: одна новость о крупной компании, 6 веток комментариев под ней и 3 своих коротких комментария.</p>
 
   <form id="enterForm" autocomplete="off">
     <p class="kicker" style="margin-bottom:8px"><label for="codeInput">Код сессии</label></p>
@@ -76,8 +76,8 @@
 
   <div class="info read" style="margin:24px 0">
     <p class="kicker" style="margin-bottom:6px">Что дальше</p>
-    <p style="margin:0">6 новостей. В 2 последних сразу после расстановки появится вопрос,
-      где отвечаете вы сами — 3–4 предложения и 3 предложения. Вернуться к предыдущей новости можно.</p>
+    <p style="margin:0">Одна новость и 6 веток комментариев под ней. По ходу Вы трижды напишете
+      свой комментарий — от 20 слов. Вернуться к предыдущей ветке можно.</p>
   </div>
 
   <button class="btn btn-primary" id="introBtn" type="button">Начать</button>
@@ -87,22 +87,34 @@
 <section class="frame situation hidden" id="screenA">
   <!-- Новость — карточкой, как пост в канале: шапка, заголовок, текст абзацами.
        Коды способностей участнику не показываем: так заданы правила. -->
-  <article class="news">
-    <p class="kicker news-num" id="aFactor">Новость 1 из 6</p>
-    <h2 class="news-title" id="aTitle"></h2>
-    <div class="news-body" id="aCase"></div>
-  </article>
+  <!-- Новость одна на весь кейс. На первой ветке открыта, дальше свёрнута,
+       но под рукой: к ней возвращаются, когда спорят о фактах. -->
+  <details class="news-fold" id="aNews">
+    <summary class="kicker" id="aNewsSum">Новость</summary>
+    <article class="news">
+      <h2 class="news-title" id="aTitle"></h2>
+      <div class="news-body" id="aCase"></div>
+    </article>
+  </details>
 
-  <p class="kicker news-label">Комментарии</p>
-  <h2 class="question read" id="aQuestion"></h2>
-  <p class="hint util read" id="aHint">Повторное нажатие снимает номер.</p>
+  <p class="kicker news-label" id="aFactor">Ветка комментариев 1 из 6</p>
+  <p class="opener read" id="aOpener"></p>
 
-  <ul class="opts" id="aOptions"></ul>
+  <!-- Сюда переезжает свой комментарий, если по кейсу он пишется до расстановки. -->
+  <div id="aFreeBefore"></div>
+
+  <div id="aRank">
+    <h2 class="question read" id="aQuestion"></h2>
+    <p class="hint util read" id="aHint">Повторное нажатие снимает номер.</p>
+    <ul class="opts" id="aOptions"></ul>
+  </div>
+
+  <div id="aFreeAfter"></div>
 
   <!-- Свободный вопрос живёт на том же экране, что и расстановка: человек
        остаётся в ситуации, которую только что читал, новый кейс не открывается. -->
   <div class="free hidden read" id="aFree">
-    <p class="kicker">Теперь вы</p>
+    <p class="kicker" id="aFreeKicker">Ваш комментарий</p>
     <p class="question" id="aFreeQ"></p>
     <label class="kicker" for="aFreeText" style="display:block;margin:16px 0 8px">Ваш ответ</label>
     <textarea class="answer answer-short" id="aFreeText" placeholder="Пишите здесь." spellcheck="true"></textarea>
@@ -149,7 +161,7 @@
   <div class="report read" id="mapReport"></div>
 
   <p class="disclaimer read" id="mapDisclaimer">Это приблизительная картина: тест короткий —
-    6 новостей и 2 коротких ответа. Для полной оценки стратегического мышления рекомендуем
+    одна новость, 6 веток комментариев и 3 коротких ответа. Для полной оценки стратегического мышления рекомендуем
     пройти ассессмент i(m)perfect.</p>
 
   <!-- «Как тренировать» — закреплённая страница методолога, текст из спеки. -->
@@ -170,8 +182,8 @@
 
 </main>
 
-<script src="js/config.js?v=20261015-1931"></script>
-<script src="js/api.js?v=20261015-1931"></script>
-<script src="js/test.js?v=20261015-1931"></script>
+<script src="js/config.js?v=20261015-2119"></script>
+<script src="js/api.js?v=20261015-2119"></script>
+<script src="js/test.js?v=20261015-2119"></script>
 </body>
 </html>

@@ -104,6 +104,8 @@ global.UrlFetchApp = {
     if ('temperature' in body) throw new Error('temperature эта модель не принимает — 400');
     if (body.max_tokens !== 4000) throw new Error('max_tokens не 4000: разбор по границам длиннее');
     if (!body.thinking || body.thinking.type !== 'disabled') throw new Error('рассуждение не выключено');
+    const user = String(body.messages[0].content);
+    if (!/<ответ1>[\s\S]*<ответ2>[\s\S]*<ответ3>/.test(user)) throw new Error('судье ушли не все 3 своих комментария');
     const content = body.messages[0].content;
     if (!/^<ответ1>/.test(content) || content.indexOf('<ответ2>') < 0) {
       throw new Error('ответы не обёрнуты в <ответ1>/<ответ2>');
@@ -160,13 +162,18 @@ const orderings = {};
 const answers = {};
 судейский.free.forEach((q, i) => { answers[q.id] = 'Ответ номер ' + (i + 1) + '. '.repeat(20); });
 
-console.log('\n1. Сессии и привязка теста к этапу');
-const парный = post({ action: 'createSession', title: 'Поток', stage: 'before' });
-check('этап «до» получил свой тест', парный.testId === CONFIG.stages[0].test, парный.testId);
-const после = post({ action: 'createSession', title: 'Поток', stage: 'after' });
-check('этап «после» получил другой тест', после.testId !== парный.testId, после.testId);
-check('у этапа без пары тест обязателен',
+console.log('\n1. Сессии и выбор кейса');
+const кейсДо = CONFIG.tests[0].id, кейсПосле = CONFIG.tests[1].id;
+const парный = post({ action: 'createSession', title: 'Поток', stage: 'before', testId: кейсДо });
+check('этап «до»: кейс выбрал ведущий', парный.ok && парный.testId === кейсДо, JSON.stringify(парный));
+const повтор = post({ action: 'createSession', title: 'Поток', stage: 'after', testId: кейсДо });
+check('на «после» тот же кейс, что на «до», не даётся', повтор.ok === false, JSON.stringify(повтор));
+const после = post({ action: 'createSession', title: 'Поток', stage: 'after', testId: кейсПосле });
+check('на «после» другой кейс — можно', после.ok && после.testId === кейсПосле, JSON.stringify(после));
+check('без выбранного кейса сессию не завести',
       post({ action: 'createSession', title: 'X', stage: 'single' }).ok === false);
+check('у кейса 6 веток и 3 своих комментария',
+      CONFIG.tests.every(t => t.situations.length === 6 && t.free.length === 3));
 const свой = post({ action: 'createSession', title: 'Своя команда', stage: 'single',
                     testId: судейский.id, identify: true });
 check('ведущий выбрал тест сам', свой.testId === судейский.id);
@@ -311,6 +318,16 @@ check('сравнение не тащит имён и текстов',
       JSON.stringify(cmp).indexOf('Катя') < 0 && JSON.stringify(cmp).indexOf('Ответ номер') < 0);
 const cmpОдин = post({ action: 'compare', code });
 check('у одиночной группы сравнивать нечего', cmpОдин.sessions.length === 1, cmpОдин.sessions.length);
+
+console.log('\n9а. Комментарии группы для разбора');
+const цит = post({ action: 'quotes', code: code });
+check('именная сессия комментариев не отдаёт', цит.ok && цит.named === true);
+const анон = post({ action: 'createSession', title: 'Разбор', stage: 'single', testId: судейский.id });
+post({ action: 'submit', code: анон.code, orderings: {}, answers, submissionId: 'ц-1' });
+const цит2 = post({ action: 'quotes', code: анон.code });
+check('по 4 способностям есть комментарии', цит2.ok && цит2.abilities.length === 4 &&
+      цит2.abilities.every(a => a.items.length === 1), JSON.stringify(цит2).slice(0, 200));
+check('в разборе нет имён и кодов строк', !/row_id|participant|rowId/.test(JSON.stringify(цит2)));
 
 console.log('\n10. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);

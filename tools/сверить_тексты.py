@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Сверяет собранные data/test_*.json со спекой и проверяет, что в публичных
+"""Сверяет собранные data/case_*.json со спекой и проверяет, что в публичных
 файлах нет ключа.
 
     python3 tools/сверить_тексты.py
 
-1. Каждый текст обязан встречаться в соответствующем spec/тест_v*.md дословно.
+1. Каждый текст обязан встречаться в spec/вычитка_*компаний.md дословно.
    Генератор и так собирает данные из спеки — проверка ловит случай, когда
    json правили руками в обход генератора.
 2. Метка реплики — хеш её текста, и реплики в файле идут по метке. Это
@@ -33,27 +33,29 @@ def norm(s):
 
 bad = 0
 for entry in setup['tests']:
-    slug = entry['id'].replace('.', '_')
-    spec_files = sorted((ROOT / 'spec').glob(f'тест_{entry["id"]}.md'))
+    spec_files = sorted((ROOT / 'spec').glob('вычитка_*компаний.md'))
     if len(spec_files) != 1:
-        print(f'ПЛОХО  для теста {entry["id"]} в spec/ нет файла тест_{entry["id"]}.md')
+        print('ПЛОХО  в spec/ должен быть ровно один файл вычитка_*компаний.md')
         bad += 1
-        continue
+        break
 
     spec = norm(spec_files[0].read_text(encoding='utf-8'))
     data = json.loads((ROOT / entry['file']).read_text(encoding='utf-8'))
 
     checked = 0
     items = [(f'вводная, абзац {i + 1}', para) for i, para in enumerate(data['intro'])]
+    items.append(('новость, заголовок', data['news']['title']))
+    for i, para in enumerate(data['news']['post']):
+        items.append((f'новость, абзац {i + 1}', para))
+    # вопрос под веткой — общий, задан в генераторе; его не сверяем
     for s in data['situations']:
-        items.append((f'новость {s["num"]}, заголовок', s['title']))
+        items.append((f'ветка {s["num"]}, заголовок', s['title']))
         for i, para in enumerate(s['post']):
-            items.append((f'новость {s["num"]}, абзац {i + 1}', para))
-        items.append((f'новость {s["num"]}, вопрос', s['question']))
+            items.append((f'ветка {s["num"]}, реплика', para))
         for j, o in enumerate(s['options'], 1):
-            items.append((f'новость {s["num"]}, комментарий {j}', o['text']))
+            items.append((f'ветка {s["num"]}, комментарий {j}', o['text']))
     for q in data['free']:
-        items.append((f'свободный вопрос {q["num"]}', q['text']))
+        items.append((f'свой комментарий {q["num"]}', q['text']))
 
     for where, text in items:
         checked += 1
@@ -66,7 +68,7 @@ for entry in setup['tests']:
     for s in data['situations']:
         ids = [o['id'] for o in s['options']]
         if ids != sorted(ids):
-            print(f'ПЛОХО  {entry["id"]} · новость {s["num"]}: комментарии идут не по метке. '
+            print(f'ПЛОХО  {entry["id"]} · ветка {s["num"]}: комментарии идут не по метке. '
                   'Скорее всего, остался порядок спеки — это и есть ключ.')
             bad += 1
         for o in s['options']:

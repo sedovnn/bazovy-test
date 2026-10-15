@@ -1,4 +1,4 @@
-/* Экраны участника: вход → 6 новостей → ожидание → карта.
+/* Экраны участника: вход → новость и 6 веток комментариев → ожидание → карта.
 
    Новость подаётся карточкой, как пост в канале, под ней 4 комментария.
    Свободные вопросы живут внутри новостей 5 и 6, отдельного экрана у них нет:
@@ -257,17 +257,26 @@
     }
     if (!state.order[s.id]) state.order[s.id] = [];
 
-    $('aFactor').textContent = 'Новость ' + (state.step + 1) + ' из ' + TEST.situations.length;
-    $('aTitle').textContent = s.title || '';
-
-    // текст новости — абзацами, как в спеке
+    // Новость одна на кейс: открыта на первой ветке, дальше свёрнута.
+    var news = TEST.news || { title: s.title, post: s.post };
+    $('aTitle').textContent = news.title || '';
+    $('aNewsSum').textContent = 'Новость · ' + (news.title || '');
     var post = $('aCase');
     post.innerHTML = '';
-    s.post.forEach(function (para) {
+    news.post.forEach(function (para) {
       var p = document.createElement('p');
       p.textContent = para;
       post.appendChild(p);
     });
+    if (state.newsStep !== state.step) {
+      $('aNews').open = state.step === 0;
+      state.newsStep = state.step;
+    }
+
+    $('aFactor').textContent = (TEST.news ? 'Ветка комментариев ' : 'Новость ') +
+      (state.step + 1) + ' из ' + TEST.situations.length;
+    $('aOpener').textContent = TEST.news ? s.post.join(' ') : '';
+    $('aOpener').classList.toggle('hidden', !TEST.news);
 
     $('aQuestion').textContent = s.question;
 
@@ -326,11 +335,20 @@
     renderProgress();
   }
 
-  /* Свободный вопрос появляется, когда расстановка собрана целиком —
-     так задано правилами: «сразу после расстановки». */
+  /* Свой комментарий. Обычно появляется, когда расстановка собрана целиком.
+     В ветке, где он стоит «до» (freeBefore), — наоборот: сначала свой ответ,
+     и только потом чужие комментарии, чтобы готовые ходы не подсказали его. */
+  function freeFirstPending(s) {
+    var q = freeOf(s);
+    return !!q && !!s.freeBefore && countWords(state.answers[q.id] || '') < CONFIG.minWords;
+  }
+
   function renderFree(s) {
     var q = freeOf(s);
-    var openNow = !!q && rankingDone(s);
+    $((q && s.freeBefore) ? 'aFreeBefore' : 'aFreeAfter').appendChild($('aFree'));
+    $('aRank').classList.toggle('hidden', freeFirstPending(s));
+
+    var openNow = !!q && (s.freeBefore || rankingDone(s));
     var wasHidden = $('aFree').classList.contains('hidden');
 
     $('aFree').classList.toggle('hidden', !openNow);
@@ -366,6 +384,14 @@
     var words = q ? countWords(state.answers[q.id] || '') : 0;
 
     var ready = rankingDone(s) && (!q || words >= CONFIG.minWords);
+    if (freeFirstPending(s)) {
+      $('aNext').disabled = true;
+      $('aNext').textContent = last ? 'Отправить' : 'Дальше';
+      $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
+      $('aNote').textContent = 'Сначала Ваш комментарий — минимум ' + CONFIG.minWords +
+        ' слов. Потом откроются комментарии ветки.';
+      return;
+    }
 
     $('aNext').disabled = !ready;
     $('aNext').textContent = last ? 'Отправить' : 'Дальше';
@@ -394,8 +420,8 @@
     save();
     var s = currentSituation();
     var q = freeOf(s);
-    // возвращаемся в ситуацию с готовой расстановкой — время идёт вопросу
-    markStep(q && rankingDone(s) ? q.id : s.id);
+    // время идёт тому, что человек сейчас делает: расстановке или своему ответу
+    markStep(q && (s.freeBefore ? freeFirstPending(s) : rankingDone(s)) ? q.id : s.id);
     show('screenA');
     renderSituation();
   }
@@ -404,9 +430,14 @@
     $('aFreeText').addEventListener('input', function () {
       var q = freeOf(currentSituation());
       if (!q) return;
+      var wasPending = freeFirstPending(currentSituation());
       state.answers[q.id] = $('aFreeText').value;
       save();
       updateCount(q);
+      if (wasPending !== freeFirstPending(currentSituation())) {
+        $('aRank').classList.toggle('hidden', freeFirstPending(currentSituation()));
+        if (!freeFirstPending(currentSituation()) && state.openStep === q.id) markStep(currentSituation().id);
+      }
       updateNav();
     });
 

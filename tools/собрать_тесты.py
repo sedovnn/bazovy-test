@@ -1,44 +1,34 @@
 #!/usr/bin/env python3
-"""Собирает контент из спеки (правила + тесты) в данные фронта и бэкенда.
+"""Собирает контент из спеки в данные фронта и бэкенда.
 
     python3 tools/собрать_тесты.py
 
-Читает spec/правила_тестирования_v*.md, все spec/тест_v*.md и все
-spec/промпт_судьи*.md, переписывает:
+Читает spec/правила_тестирования_v*.md, spec/вычитка_*компаний.md (6 кейсов:
+новость, 6 веток комментариев, 3 своих комментария), шаблон обёртки судьи
+spec/обёртка_судьи_кейсы*.md, профиль, тексты отчёта и методологию, переписывает:
 
-  data/test_<версия>.json    — тексты ОДНОГО теста (БЕЗ ключей), по файлу на тест
+  data/case_<компания>.json  — тексты ОДНОГО кейса (БЕЗ ключей), по файлу на кейс
   js/config.js               — общая часть: навыки, способности, зоны, этапы,
-                               список тестов с именами файлов
-  js/keys.js                 — ключи: тест → ситуация → уровень каждой реплики
+                               список кейсов с именами файлов
+  js/keys.js                 — ключи: кейс → ветка → уровень каждого комментария
   apps-script/keys.gs        — то же для бэкенда
-  apps-script/config.gs      — состав навыков, способностей, тестов, зоны
-  apps-script/judge_prompts.gs — промпты судьи целиком, по одному на тест
+  apps-script/config.gs      — состав навыков, способностей, кейсов, зоны
+  apps-script/judge_prompts.gs — промпты судьи целиком, по одному на кейс
 
-Тексты тестов лежат врозь намеренно: участник скачивает только свой тест.
-Иначе тот, кто проходит «до», получил бы в браузер и тест «после».
+Тексты кейсов лежат врозь намеренно: участник скачивает только свой кейс.
 
 Руками эти файлы не правят: правится спека, потом скрипт.
 
-РАЗМЕТКА, НА КОТОРУЮ ОПИРАЕМСЯ:
-  Вводная для участника…: «…»  ← абзацы разделяются переводом строки
-  ## Новость N — Заголовок → заголовок карточки, абзацы новости, **вопрос**,
-                             четыре «- комментарий»
-  ### Свободный вопрос N — появляется после расстановки в новости M
-  # Ключи…                 → **Новость N — КОД.** …
+РАЗМЕТКА ФАЙЛА КЕЙСОВ — в шапке самого файла. Ветка N меряет одну и ту же
+способность во всех кейсах (BRANCH_FACTORS), свой комментарий N — тоже
+(FREE_ABILITIES). В ветке комментарии идут по возрастанию силы: первый — L2,
+четвёртый — L5.
 
-Прежнее слово «Ситуация» разбирается тоже: старые файлы тестов не ломаются.
-
-⚠ РЕПЛИКИ БЕЗ БУКВ. В спеке они идут по возрастанию силы, и уровень каждой
-известен по её месту в списке. Поэтому в data/*.json НЕЛЬЗЯ класть ни буквы,
-ни порядок из спеки: файл лежит в публичном репозитории, и по нему собралась
-бы готовая расстановка. Реплика получает метку — шесть знаков от хеша её
-текста, — и реплики в файле пересортированы по этой метке. Метка ничего
-не говорит об уровне; связь «метка → уровень» живёт только в keys.js и
-keys.gs, которые в публичный репозиторий не коммитятся.
-
-Метка держится, пока не меняется текст реплики. Правка текста меняет метку
-и ключ вместе — новые прохождения считаются верно; у прежних строк в таблице
-остаётся записанный балл, пересчитать их по новому тексту всё равно нельзя.
+⚠ КОММЕНТАРИИ БЕЗ БУКВ. В data/*.json НЕЛЬЗЯ класть ни порядок из спеки, ни
+уровни: файл лежит в публичном репозитории. Комментарий получает метку —
+шесть знаков от хеша «кейс | ветка | текст», — и в файле они отсортированы по
+метке. Связь «метка → уровень» живёт только в keys.js и keys.gs, которые в
+публичный репозиторий не коммитятся. Правка текста меняет метку и ключ вместе.
 """
 
 import hashlib
@@ -182,126 +172,111 @@ def slug(test_id):
     return test_id.replace('.', '_')
 
 
-def parse_test(path):
+# Новая подача: одна новость, 6 веток, 3 своих комментария. Какую способность
+# меряет ветка и какой ответ — задано форматом и одинаково во всех кейсах.
+BRANCH_FACTORS = {1: 'АК-1', 2: 'АК-2', 3: 'ГА-2', 4: 'ПР-2', 5: 'ПП-2', 6: 'МК-2'}
+FREE_ABILITIES = {1: ['ПП-1', 'ПР-1'], 2: ['ГА-1'], 3: ['МК-1']}
+RANK_QUESTION = ('Расставьте 4 комментария: 1 — тот, который написали бы сами, '
+                 '4 — тот, с которым согласны меньше всего.')
+
+
+def parse_cases(path):
+    """Кейсы из файла вычитки. Разметка — в шапке самого файла."""
     text = path.read_text(encoding='utf-8')
-
-    vm = re.search(r'^#\s*Тест\s+(v[\d.]+)', text, re.M)
-    hm = re.search(r'^#\s*Тест\s+v[\d.]+\s*—\s*(.+)$', text, re.M)
+    vm = re.search(r'Версия кейсов:\s*(\d+(?:\.\d+)*)', text)
     if not vm:
-        fail(f'{path.name}: в заголовке нет версии вида «v1.3»')
+        fail(f'{path.name}: нет строки «Версия кейсов: X.Y»')
+    version = vm.group(1)
 
-    im = re.search(r'Вводная для участника[^«]*«([^»]+)»', text)
+    im = re.search(r'^## Вводная[^\n]*\n(.*?)(?=^---|^#)', text, re.M | re.S)
     if not im:
-        fail(f'{path.name}: не нашёл вводную для участника')
+        fail(f'{path.name}: нет раздела «## Вводная»')
+    intro = [ln.strip() for ln in im.group(1).split('\n')
+             if ln.strip() and not ln.strip().startswith('*')]
 
-    # ---- ситуации ----
     body = text[:text.index('# Ключи')] if '# Ключи' in text else text
-    situations = []
-    for chunk in re.split(r'\n## (?:Новость|Ситуация)\s+', body)[1:]:
-        lines = chunk.split('\n')
-        # «5 — Stellantis · май 2026»: номер и заголовок карточки
-        head = re.match(r'(\d+)\s*(?:—\s*(.+?))?\s*$', lines[0].strip())
-        if not head:
-            fail(f'{path.name}: не разобрал заголовок новости: {lines[0]!r}')
-        num, title = head.group(1), (head.group(2) or '').strip()
-        rest = '\n'.join(lines[1:])
+    cases = []
+    for num, name, chunk in re.findall(r'^# (\d+)\. (.+?)\n(.*?)(?=^# |\Z)', body, re.M | re.S):
+        where = f'{path.name}, кейс {name}'
+        nm = re.search(r'^## Новость — (.+?)\n(.*?)(?=^## )', chunk, re.M | re.S)
+        if not nm:
+            fail(f'{where}: нет «## Новость — …»')
+        news = {'title': nm.group(1).strip(),
+                'post': [ln.strip() for ln in nm.group(2).split('\n')
+                         if ln.strip() and set(ln.strip()) != {'-'}]}
+        cid = re.sub(r'[^a-z0-9]+', '', name.lower()) + '-' + version
 
-        # свободный вопрос отрезаем — он разбирается отдельно
-        rest = re.split(r'\n### Свободный вопрос', rest)[0]
+        situations, free = [], []
+        branches = re.findall(r'^## Ветка комментариев (\d)\n(.*?)(?=^## |\Z)', chunk, re.M | re.S)
+        if [int(b[0]) for b in branches] != [1, 2, 3, 4, 5, 6]:
+            fail(f'{where}: ветки должны идти 1–6, нашёл {[b[0] for b in branches]}')
+        for bnum, btext in branches:
+            bnum = int(bnum)
+            lines = [ln.strip() for ln in btext.split('\n') if ln.strip() and set(ln.strip()) != {'-'}]
+            bullets = [ln[2:].strip() for ln in lines if ln.startswith('- ')]
+            if len(bullets) != 4:
+                fail(f'{where}, ветка {bnum}: ожидал 4 комментария, нашёл {len(bullets)}')
+            opener = next((ln for ln in lines if not ln.startswith('- ') and not ln.startswith('>')), '')
+            if not opener:
+                fail(f'{where}, ветка {bnum}: нет реплики, открывающей ветку')
+            sid = f's{bnum}'
+            options = [{'id': tag(cid, sid, b), 'text': b, 'level': LEVEL_OF[LETTERS[k]]}
+                       for k, b in enumerate(bullets)]
+            if len({o['id'] for o in options}) != 4:
+                fail(f'{where}, ветка {bnum}: два комментария совпали дословно')
+            options.sort(key=lambda o: o['id'])   # порядок по метке, не по силе
+            s = {'num': bnum, 'id': sid, 'title': f'Ветка комментариев {bnum}', 'post': [opener],
+                 'question': RANK_QUESTION, 'options': options, 'factor': BRANCH_FACTORS[bnum]}
 
-        bullets = [m.strip() for m in re.findall(r'^-\s+(.+?)\s*$', rest, re.M)]
-        if len(bullets) != 4:
-            fail(f'{path.name}, новость {num}: ожидал 4 комментария, нашёл {len(bullets)}')
+            for k, ln in enumerate(lines):
+                qm = re.match(r'^> \*\*Ваш комментарий (\d)\.\*\*\s*(.+)$', ln)
+                if not qm:
+                    continue
+                qn = int(qm.group(1))
+                first_bullet = next(x for x, l2 in enumerate(lines) if l2.startswith('- '))
+                q = {'id': f'q{qn}', 'num': qn, 'after': bnum, 'text': qm.group(2).strip(),
+                     'abilities': FREE_ABILITIES[qn], 'before': k < first_bullet}
+                free.append(q)
+                s['free'] = q['id']
+                s['freeBefore'] = q['before']
+            situations.append(s)
 
-        first = rest.find('\n- ')
-        before = rest[:first] if first >= 0 else rest
-        q = re.findall(r'^\*\*(.+?)\*\*$', before.strip(), re.M)
-        if len(q) != 1:
-            fail(f'{path.name}, новость {num}: ожидал один вопрос в **…**, нашёл {len(q)}')
-
-        # пост — абзацами, как в файле: на экране они и будут абзацами
-        post = [ln.strip() for ln in before.split('\n')
-                if ln.strip() and not ln.strip().startswith('**')]
-        if not post:
-            fail(f'{path.name}, новость {num}: пустая новость')
-
-        sid = f's{num}'
-        options = [{'id': tag(vm.group(1), sid, t), 'text': t, 'level': LEVEL_OF[LETTERS[i]]}
-                   for i, t in enumerate(bullets)]
-        if len({o['id'] for o in options}) != 4:
-            fail(f'{path.name}, новость {num}: два комментария совпали дословно')
-        # порядок в файле — по метке, а не по силе: иначе файл и есть ключ
-        options.sort(key=lambda o: o['id'])
-
-        situations.append({
-            'num': int(num), 'title': title, 'post': post, 'question': q[0].strip(),
-            'options': options,
+        free.sort(key=lambda f: f['num'])
+        if [f['num'] for f in free] != [1, 2, 3]:
+            fail(f'{where}: нужны «Ваш комментарий» 1, 2, 3, нашёл {[f["num"] for f in free]}')
+        goal = re.search(r'цель — (.+?)\. Что вы', free[0]['text'])
+        cases.append({
+            'id': cid, 'name': name.strip(), 'intro': intro, 'news': news,
+            'file': f'data/case_{re.sub(r"[^a-z0-9]+", "", name.lower())}.json',
+            'situations': situations, 'free': free,
+            'goal': goal.group(1) if goal else '',
+            'key': {s['id']: {o['id']: o['level'] for o in s['options']} for s in situations},
         })
+    if len(cases) != 6:
+        fail(f'{path.name}: ожидал 6 кейсов, нашёл {len(cases)}')
+    return cases
 
-    if len(situations) != 6:
-        fail(f'{path.name}: ожидал 6 новостей, нашёл {len(situations)}')
 
-    # ---- свободные вопросы ----
-    free = []
-    for num, after, tail in re.findall(
-            r'### Свободный вопрос\s+(\d+)\s*—\s*появляется после расстановки '
-            r'в (?:новости|ситуации)\s+(\d+)\s*\n(.+?)(?=\n#|\Z)',
-            text, re.S):
-        # «---» — разделитель markdown, а не текст вопроса
-        para = [ln.strip() for ln in tail.split('\n')
-                if ln.strip() and not ln.startswith('#') and set(ln.strip()) != {'-'}]
-        if not para:
-            fail(f'{path.name}: пустой свободный вопрос {num}')
-        free.append({'id': 'q' + num, 'num': int(num), 'after': int(after),
-                     'text': ' '.join(para)})
-    if len(free) != 2:
-        fail(f'{path.name}: ожидал 2 свободных вопроса, нашёл {len(free)}')
-    free.sort(key=lambda f: f['num'])
-
-    # ---- ключи: какая ситуация какой фактор ----
-    keys_part = text[text.index('# Ключи'):] if '# Ключи' in text else ''
-    factors = {}
-    for num, code in re.findall(r'\*\*(?:Новость|Ситуация)\s+(\d+)\s*—\s*([А-ЯA-Z]+-\d)', keys_part):
-        factors.setdefault(int(num), code)
-    if len(factors) != 6:
-        fail(f'{path.name}: в ключах найдено {len(factors)} новостей из 6')
-
-    # порядок ключа: в правилах он единый, но читаем из файла, если записан
-    order = re.search(r'([BCDE](?:\s*→\s*[BCDE]){3})', keys_part)
-    order = [x.strip() for x in order.group(1).split('→')] if order else ['E', 'D', 'C', 'B']
-    if sorted(order) != sorted(LETTERS):
-        fail(f'{path.name}: в ключе не все четыре реплики: {order}')
-
-    # какой способности какой свободный вопрос
-    q_abilities = {}
-    for num, codes in re.findall(r'Свободный вопрос\s+(\d+)\s*→\s*([А-ЯA-Z0-9\-,\s]+)', keys_part):
-        q_abilities[int(num)] = [c.strip() for c in codes.split(',') if c.strip()]
-    for f in free:
-        f['abilities'] = q_abilities.get(f['num'], [])
-        if not f['abilities']:
-            fail(f'{path.name}: не нашёл, какие способности меряет свободный вопрос {f["num"]}')
-
-    for s in situations:
-        s['factor'] = factors[s['num']]
-        s['id'] = f's{s["num"]}'
-
-    # к какой ситуации прицеплен свободный вопрос
-    by_num = {s['num']: s for s in situations}
-    for f in free:
-        if f['after'] not in by_num:
-            fail(f'{path.name}: свободный вопрос {f["num"]} ссылается на новость '
-                 f'{f["after"]}, которой нет')
-        by_num[f['after']]['free'] = f['id']
-
-    return {
-        'id': vm.group(1),
-        'name': hm.group(1).strip() if hm else vm.group(1),
-        'intro': [ln.strip() for ln in im.group(1).split('\n') if ln.strip()],
-        'file': f'data/test_{slug(vm.group(1))}.json',
-        'situations': situations,
-        'free': free,
-        'key': {s['id']: {o['id']: o['level'] for o in s['options']} for s in situations},
-    }
+def case_context(c):
+    """Контекст для судьи: всё, что видел участник, в том же порядке.
+    Комментарии — в порядке файла (от слабого к сильному), как в прежних обёртках."""
+    out = [f'**Новость — {c["news"]["title"]}**', '']
+    out += ['> ' + p + '\n>' for p in c['news']['post']]
+    out[-1] = out[-1][:-2]
+    out.append('')
+    free = {f['id']: f for f in c['free']}
+    for s in c['situations']:
+        out += [f'**Ветка комментариев {s["num"]}.** {s["post"][0]}', '']
+        q = free.get(s.get('free', ''))
+        if q and q['before']:
+            out += [f'**Ответ {q["num"]}** — вопрос участнику, до расстановки этой ветки: «{q["text"]}»', '']
+        levels = sorted(s['options'], key=lambda o: o['level'])
+        out += ['> — ' + o['text'] + '\n>' for o in levels]
+        out[-1] = out[-1][:-2]
+        out.append('')
+        if q and not q['before']:
+            out += [f'**Ответ {q["num"]}** — вопрос участнику, после расстановки этой ветки: «{q["text"]}»', '']
+    return '\n'.join(out).rstrip()
 
 
 def js(value, indent=2):
@@ -314,11 +289,10 @@ def main():
     rules_version = (re.search(r'Версия правил:\s*([\d.]+)', rules) or [None, '?'])[1] \
         if re.search(r'Версия правил:\s*([\d.]+)', rules) else '?'
 
-    tests = sorted((parse_test(p) for p in SPEC.glob('тест_v*.md')), key=lambda t: t['id'])
-    if not tests:
-        fail('в spec/ нет ни одного файла тест_v*.md')
+    cases_path = one('вычитка_*компаний.md', 'кейсы')
+    tests = parse_cases(cases_path)
 
-    head = (f'/* СОБРАНО АВТОМАТИЧЕСКИ из spec/ ({rules_path.name} и файлы тестов).\n'
+    head = (f'/* СОБРАНО АВТОМАТИЧЕСКИ из spec/ ({rules_path.name} и {cases_path.name}).\n'
             '   Руками не править: изменения затрёт следующий прогон\n'
             '   tools/собрать_тесты.py. Правится спека, потом скрипт. */\n\n')
 
@@ -327,12 +301,13 @@ def main():
     for t in tests:
         payload = {
             '_': 'Собрано автоматически из spec/. Руками не править.',
-            'id': t['id'], 'name': t['name'], 'intro': t['intro'],
+            'id': t['id'], 'name': t['name'], 'intro': t['intro'], 'news': t['news'],
             # в публичный файл уходит только то, что человек видит на экране:
             # ни кода способности, ни уровня реплики
             'situations': [{'id': s['id'], 'num': s['num'], 'title': s['title'],
                             'post': s['post'],
                             'question': s['question'], 'free': s.get('free', ''),
+                            'freeBefore': s.get('freeBefore', False),
                             'options': [{'id': o['id'], 'text': o['text']}
                                         for o in s['options']]}
                            for s in t['situations']],
@@ -349,7 +324,10 @@ def main():
     # ---- общая часть: всё, что не зависит от теста ----
     setup = {
         'rules': rules_version,
-        'tests': [{'id': t['id'], 'name': t['name'], 'file': t['file'], 'v': t['v']}
+        # какой свой комментарий на какие способности нацелен — не секрет,
+        # нужен экрану ведущего для разбора комментариев
+        'tests': [{'id': t['id'], 'name': t['name'], 'file': t['file'], 'v': t['v'],
+                   'free': [{'id': f['id'], 'abilities': f['abilities']} for f in t['free']]}
                   for t in tests],
         'skills': [{'id': i, 'name': n, 'factors': f, 'ability': a} for i, n, f, a in SKILLS],
         'abilities': [{'id': i, 'name': n} for i, n in ABILITIES],
@@ -358,12 +336,12 @@ def main():
         'training': {'items': rt['training'], 'site': rt['site']},
         'zones': ['не видит', 'видит, путает', 'выбирает'],
         'minWords': MIN_WORDS,
-        # Привязка теста к этапу жёсткая (решение владельца 21.09): «до» и «после»
-        # обязаны быть разными тестами, правила запрещают давать один дважды.
-        # У «Базового теста» пары нет — тест выбирает ведущий.
+        # Кейсов 6, и на любом этапе ведущий выбирает кейс сам (решение владельца
+        # 15.10). Правило «один кейс дважды не даётся» проверяет бэкенд: на «после»
+        # нельзя взять кейс, который у группы с тем же названием был на «до».
         'stages': [
-            {'id': 'before', 'name': 'До потока', 'test': tests[0]['id'], 'choose': False},
-            {'id': 'after', 'name': 'После потока', 'test': tests[-1]['id'], 'choose': False},
+            {'id': 'before', 'name': 'До потока', 'test': None, 'choose': True},
+            {'id': 'after', 'name': 'После потока', 'test': None, 'choose': True},
             {'id': 'single', 'name': 'Базовый тест', 'test': None, 'choose': True},
         ],
     }
@@ -426,21 +404,27 @@ def main():
     profile_ver = pv.group(1) if pv else '?'
     method_ver = mv.group(1) if mv else method_path.stem
 
+    # Обёртка одна на все кейсы: шаблон, куда подставляются новость, ветки,
+    # вопросы и цель. Так обёртки кейсов не расходятся между собой.
+    tpl_path = one('обёртка_судьи_кейсы*.md', 'обёртка судьи')
+    tpl = tpl_path.read_text(encoding='utf-8')
+    tv = re.search(r'Версия обёртки:\s*([\d.]+)', tpl)
+    wrapper_base = tpl[tpl.index('## Часть 1.'):]
     prompts = {}
-    for path in sorted(SPEC.glob('промпт_судьи*.md')):
-        wrapper = path.read_text(encoding='utf-8')
-        m = re.search(r'\(тест\s+(v[\d.]+)\)', wrapper.split('\n')[0])
-        if not m:
-            print(f'  ПРОПУЩЕН {path.name}: в заголовке нет «(тест vX.Y)»')
-            continue
-        vm2 = re.search(r'v\d+(?:\.\d+)*', path.name)
+    for c in tests:
+        if not c['goal']:
+            fail(f'{cases_path.name}, кейс {c["name"]}: в «Ваш комментарий 1» не нашёл цель «цель — …. Что вы»')
+        wrapper = (f'# Промпт судьи — кейс {c["name"]} (тест {c["id"]})\n\n---\n\n'
+                   + wrapper_base.replace('{{КОНТЕКСТ}}', case_context(c)).replace('{{ЦЕЛЬ}}', c['goal']))
+        if '{{' in wrapper:
+            fail(f'{tpl_path.name}: остался неподставленный {{{{…}}}}')
         text = (wrapper.rstrip() + '\n\n' + next_step_section(rt)
                 + '\n\n---\n\n## Часть 2. Профиль применения к мини-формату\n\n' + profile
                 + '\n\n---\n\n## Часть 3. Методология (дословно)\n\n' + method + '\n')
-        prompts[m.group(1)] = {
-            'version': (vm2.group(0) if vm2 else '?')
-                       + f' · профиль {profile_ver} · тексты отчёта {rt["version"]} · методология {method_ver}',
-            'file': path.name, 'text': text}
+        prompts[c['id']] = {
+            'version': f'обёртка {tv.group(1) if tv else "?"} · кейсы {c["id"].split("-")[-1]}'
+                       f' · профиль {profile_ver} · тексты отчёта {rt["version"]} · методология {method_ver}',
+            'file': tpl_path.name, 'text': text}
 
     lines = []
     for test_id in sorted(prompts):
@@ -451,7 +435,7 @@ def main():
                      + '    text: [\n' + body + '\n    ].join(\'\\n\')\n  }')
 
     (ROOT / 'apps-script' / 'judge_prompts.gs').write_text(
-        '/* СОБРАНО АВТОМАТИЧЕСКИ: spec/промпт_судьи*.md (обёртка) + профиль\n'
+        '/* СОБРАНО АВТОМАТИЧЕСКИ: spec/обёртка_судьи_кейсы*.md с кейсом + профиль\n'
         '   мини-формата + методология, по промпту на тест. Правится только спека.\n'
         '   Строки закодированы как JSON, чтобы кавычки и markdown внутри\n'
         '   не ломали литерал. */\n\n'
@@ -464,13 +448,14 @@ def main():
         print(f'  {t["id"]} «{t["name"]}» → {t["file"]}')
         print(f'      {f}')
         for q in t['free']:
-            print(f'      вопрос {q["num"]} после новости {q["after"]} → {", ".join(q["abilities"])}')
+            print(f'      свой комментарий {q["num"]} {"до" if q["before"] else "после"} расстановки '
+                  f'в ветке {q["after"]} → {", ".join(q["abilities"])}')
     print('  промпты судьи:')
     for t in tests:
         got = prompts.get(t['id'])
         print(f'    {t["id"]} → ' + (f'{got["file"]} ({len(got["text"])} знаков)' if got
                                      else 'НЕТ — свободные ответы этого теста оценить нечем'))
-    print('Переписаны: data/test_*.json, js/config.js, js/keys.js, '
+    print('Переписаны: data/case_*.json, js/config.js, js/keys.js, '
           'apps-script/{keys,config,judge_prompts}.gs')
 
 

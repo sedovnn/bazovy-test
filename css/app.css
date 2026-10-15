@@ -352,6 +352,22 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 .news-body p { margin: 0 0 12px; }
 .news-body p:last-child { margin-bottom: 0; }
 
+/* Новость одна на кейс: на первой ветке открыта, дальше свёрнута в строку. */
+.news-fold { max-width: var(--w-read); margin: 0 0 28px; }
+.news-fold > summary {
+  cursor: pointer; width: fit-content; margin: 0 0 10px;
+  color: var(--muted); list-style-position: inside;
+}
+.news-fold > summary:hover { color: var(--ink); }
+.news-fold .news { margin: 0; }
+
+/* Реплика, которая открывает ветку, — как первый комментарий под постом. */
+.opener {
+  margin: 0 0 20px; padding: 12px 14px;
+  background: var(--soft); border-radius: var(--radius);
+  font-size: var(--fs-read); line-height: 1.5;
+}
+
 /* Подпись над списком комментариев — как «комментарии» под постом. */
 .news-label { margin: 0 0 12px; }
 
@@ -669,6 +685,33 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   max-width: var(--w-read);
   font-size: var(--fs-dense);
 }
+
+/* ---------- host: комментарии группы ---------- */
+
+.quotes-skill { margin: 16px 0 0; }
+.quotes-skill > summary { cursor: pointer; font-weight: 600; }
+.quotes { list-style: none; margin: 10px 0 0; padding: 0; }
+.quotes li { margin: 0 0 8px; }
+.quote-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: var(--paper); padding: 12px 14px; font: inherit; color: var(--ink);
+}
+.quote-item:hover { border-color: var(--muted-soft); }
+.quote-lvl, .quote-tag {
+  display: inline-block; margin: 0 8px 6px 0; font-size: var(--fs-util);
+  color: var(--muted); background: var(--soft); border-radius: var(--radius); padding: 2px 8px;
+}
+.quote-tag { color: var(--accent-ink); background: var(--accent-tint); }
+.quote-text { display: block; line-height: 1.5; }
+
+.quote-full {
+  position: fixed; inset: 0; z-index: 50; background: var(--paper);
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  padding: 8vh 8vw; gap: 24px; overflow: auto;
+}
+.quote-full.hidden { display: none; }
+.quote-full-text { font-size: clamp(22px, 3.4vw, 44px); line-height: 1.35; max-width: 32ch; margin: 0; }
 
 /* ---------- host: операторская шкала ---------- */
 
