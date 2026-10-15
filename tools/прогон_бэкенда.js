@@ -214,23 +214,20 @@ check('разбор по границам записан текстом',
 check('цитата — верхней пройденной границы', row[h.indexOf('МК-1_quote')] === 'сервис 4');
 check('вывод записан', /Вы назвали/.test(String(row[h.indexOf('МК-1_takeaway')])));
 
-console.log('\n2а. Спорная граница — ручная проверка по v8');
+console.log('\n2а. Спорная граница — уровень есть всегда (ручной проверки нет)');
 fetchMode = 'спорно';
 const rr = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-спорно' });
 const буд = rr.map.skills.filter(sk => sk.ability === 'МК-1')[0];
-check('уровня нет', буд.level === null && буд.review === true, JSON.stringify(буд));
-check('при ручной проверке человек видит только «что есть»', буд.takeaway === 'Вы назвали сервис.', буд.takeaway);
-check('полоса строится по расстановке', буд.value === буд.score / буд.max);
+check('модель вернула «ручную проверку» — уровень всё равно стоит, по пройденным границам',
+      буд.level === 3 && буд.review === false, JSON.stringify(буд));
+check('человек видит и «что есть», и «что дальше»', буд.takeaway === 'Вы назвали сервис. Покажите, что дальше.', буд.takeaway);
+check('сомнение помечено флагом', буд.flag === true);
 const rowR = sheets['responses']._rows[sheets['responses']._rows.length - 1];
-check('в таблице «ручная проверка» и варианты',
-      rowR[h.indexOf('МК-1_status')] === 'ручная проверка' && rowR[h.indexOf('МК-1_options')] === '3, 4' &&
-      rowR[h.indexOf('МК-1_level')] === '');
-check('объяснение спорного — в таблицу для методолога', rowR[h.indexOf('МК-1_unclear')] === 'Неясно, сервис.');
-const reopen = post({ action: 'result', rowId: rr.rowId });
-const буд2 = reopen.map.skills.filter(sk => sk.ability === 'МК-1')[0];
-check('при повторном открытии статус сохранился', буд2.review === true && буд2.level === null);
+check('в таблице статус «оценено» и уровень',
+      rowR[h.indexOf('МК-1_status')] === 'оценено' && String(rowR[h.indexOf('МК-1_level')]) === '3');
+check('объяснение спорного — в таблицу', /Неясно, сервис\..*взят по пройденным границам/.test(rowR[h.indexOf('МК-1_unclear')]));
 const сводкаR = post({ action: 'summary', code }).summary.skills.filter(sk => sk.ability === 'МК-1')[0];
-check('в сводке ручная проверка посчитана отдельно', сводкаR.review === 1, JSON.stringify(сводкаR));
+check('в сводке уточнений нет', сводкаR.review === 0, JSON.stringify(сводкаR));
 fetchMode = 'ok';
 
 console.log('\n3. Повторная отправка и открытие карты');

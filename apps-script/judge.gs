@@ -9,8 +9,9 @@
    При неразборчивом JSON — один повтор с добавлением «Ответь только JSON».
 
    Выдача по профилю мини-формата: по каждому из 4 поднавыков — 4 границы
-   лестницы («да» / «нет» / «спорно» с цитатой), статус «оценено» или
-   «ручная проверка», уровень или null, вывод для человека в 1–2 предложения.
+   лестницы («да» / «нет» / «спорно» с цитатой), уровень 1–5 всегда, вывод
+   для человека в 1–2 предложения. Ручной проверки в этом тесте нет (профиль
+   5.5, решение владельца): спорную границу судья решает сам и ставит флаг.
    Лимит ответа поднят до 4000: разбор по границам длиннее прежнего.
 
    ⚠ РАСХОЖДЕНИЕ СО СПЕКОЙ, ВЫНУЖДЕННОЕ. «Температуры 0» на этой модели нет:
@@ -145,8 +146,7 @@ function finishTexts(verdict) {
       var p = textProblems(f, v[f]);
       if (p.length) { notes.push(f + ' скрыт: ' + p.join(', ') + ' — «' + v[f] + '»'); v[f] = ''; }
     });
-    var review = v.status === REVIEW;
-    var parts = [v.has, review ? '' : v.next].filter(function (x) { return x; });
+    var parts = [v.has, v.next].filter(function (x) { return x; });
     v.takeaway = parts.length ? parts.join(' ') : '';
     v.why = v.takeaway;
     v.textcheck = notes.join('\n');
@@ -205,9 +205,11 @@ var REVIEW = 'ручная проверка';
 /* Разбирает вердикт. Ждём голый JSON, но на всякий случай снимаем
    markdown-ограждение и берём самый внешний объект.
 
-   Годится, только если есть все 4 поднавыка. У «оценено» обязателен уровень
-   1–5; у «ручной проверки» уровня нет — так требует методология v8
-   (правила оценщика 9 и 13): предварительная оценка не выдаётся за окончательную. */
+   Годится, только если есть все 4 поднавыка. Уровень есть всегда: ручной
+   проверки в тесте нет, человек получает оценку и обратную связь (профиль 5.5).
+   Если модель всё же вернула «ручную проверку» или не дала уровня, уровень
+   берётся по пройденным границам подряд снизу («спорно» не засчитывается)
+   и ставится флаг — сомнение остаётся в таблице, человек видит уровень. */
 function parseVerdict(raw) {
   var text = String(raw || '').trim();
 
@@ -240,39 +242,32 @@ function parseVerdict(raw) {
       if (st === 'да' && g.q) best = String(g.q);
     }
 
-    var review = String(got.status || '').toLowerCase().indexOf('ручн') >= 0;
-    var level = null;
-    if (!review) {
-      level = Number(got.level);
-      if (!(level >= 1 && level <= 5)) return null;
-      level = Math.round(level);
+    var asked = String(got.status || '').toLowerCase().indexOf('ручн') >= 0;
+    var level = Number(got.level);
+    var fallback = asked || !(level >= 1 && level <= 5);
+    if (fallback) {
+      level = 1;
+      for (var g2 = 0; g2 < GATE_KEYS.length && gates[GATE_KEYS[g2]].s === 'да'; g2++) level++;
     }
+    level = Math.round(level);
 
-    var options = [];
-    if (review && got.options && got.options.length) {
-      for (var o = 0; o < got.options.length; o++) {
-        var n = Number(got.options[o]);
-        if (n >= 1 && n <= 5 && options.indexOf(n) < 0) options.push(Math.round(n));
-      }
-    }
-
-    /* Вывод для человека судья пишет двумя полями: «что есть» и «дальше»
-       (или «что неясно» при ручной проверке). Разделение нарочное: одной
-       фразой модель стабильно съезжала в «чтобы выйти на следующий уровень»
-       и в похвалы. Старое поле takeaway тоже принимаем. */
+    /* Вывод для человека судья пишет двумя полями: «что есть» и «дальше».
+       Разделение нарочное: одной фразой модель стабильно съезжала в «чтобы
+       выйти на следующий уровень» и в похвалы. Старое поле takeaway тоже
+       принимаем. Что было спорно — поле unclear, только в таблицу. */
     function txt(x) { return String(x === undefined || x === null ? '' : x).trim(); }
-    // При ручной проверке человек видит только «что есть»; объяснение, что
-    // спорно, — для методолога, в таблицу.
-    var has = txt(got.has), next = review ? '' : txt(got.next);
+    var has = txt(got.has), next = level >= 5 ? '' : txt(got.next);
     var parts = [has, next].filter(function (x) { return x; });
     var takeaway = parts.length ? parts.join(' ') : txt(got.takeaway);
-    var unclear = review ? txt(got.unclear) : '';
+    var unclear = txt(got.unclear);
+    if (fallback) unclear = (unclear ? unclear + ' ' : '') +
+      '[Судья не дал уровня — взят по пройденным границам подряд.]';
     out[id] = {
-      status: review ? REVIEW : 'оценено',
+      status: 'оценено',
       level: level,
-      options: options,
+      options: [],
       gates: gates,
-      flag: got.flag === true,
+      flag: got.flag === true || fallback,
       slogan: got.slogan === true,
       quote: best,
       takeaway: takeaway,

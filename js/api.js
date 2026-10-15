@@ -245,26 +245,21 @@ var MOCK = {
      от ответа к ответу и было что показать на экране. */
   judge: function (text) {
     /* Имитация судьи в формате профиля мини-формата: уровни выводятся из длины
-       текста, чтобы карта менялась от ответа к ответу. Картина будущего на
-       длинных ответах уходит в «ручную проверку» — чтобы было видно и это. */
+       текста, чтобы карта менялась от ответа к ответу. Уровень есть всегда. */
     var words = (text || '').trim().split(/\s+/).filter(Boolean).length;
     var base = words < 30 ? 1 : words < 60 ? 2 : words < 110 ? 3 : 4;
     var out = {};
     var ids = CONFIG.abilities.map(function (a) { return a.id; });
     for (var i = 0; i < ids.length; i++) {
       var lv = Math.max(1, Math.min(5, base + ((words + i * 7) % 3) - 1));
-      var review = ids[i] === 'МК-1' && words >= 60;
       var gates = {};
       ['2', '3', '4', '5'].forEach(function (k) {
         gates[k] = Number(k) <= lv ? { s: 'да', q: 'фрагмент (мок)' } : { s: 'нет' };
       });
       out[ids[i]] = {
-        status: review ? 'ручная проверка' : 'оценено',
-        level: review ? null : lv, options: review ? [lv, lv + 1] : [],
+        status: 'оценено', level: lv, options: [],
         gates: gates, flag: false, slogan: false, quote: 'фрагмент (мок)',
-        takeaway: review
-          ? 'В ответе есть новое место компании; неясно, меняется ли способ зарабатывать (мок).'
-          : 'Это вывод-заглушка: в ответе видно направление, следующий шаг — назвать, от чего откажетесь (мок).'
+        takeaway: 'Это вывод-заглушка: в ответе видно направление, следующий шаг — назвать, от чего откажетесь (мок).'
       };
       out[ids[i]].why = out[ids[i]].takeaway;
     }

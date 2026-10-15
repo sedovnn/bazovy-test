@@ -257,10 +257,7 @@
         judged += sk.levels[l];
         tr.appendChild(cell(String(sk.levels[l] || '—')));
       }
-      // «уточняется» — судья по методологии v8 не смог однозначно поставить уровень
-      var review = sk.review || 0;
-      tr.appendChild(cell(review ? String(review) : '—'));
-      var missing = summary.count - judged - review;
+      var missing = summary.count - judged;
       tr.appendChild(cell(missing > 0 ? String(missing) : '—'));
       lb.appendChild(tr);
     });
