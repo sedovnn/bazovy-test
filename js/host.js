@@ -61,8 +61,8 @@
     $('testRow').classList.toggle('hidden', !stage.choose);
     var paired = stage.id === 'before' || stage.id === 'after';
     $('stageNote').textContent = stage.choose
-      ? (paired ? 'Кейс выбираете Вы. На «до» и «после» одной группы — разные кейсы.'
-                : 'Кейс выбираете Вы — любой из шести.')
+      ? (paired ? 'Кейс выбираете вы. На «до» и «после» одной группы — разные кейсы.'
+                : 'Кейс выбираете вы — любой из шести.')
       : 'Кейс для этого этапа задан: ' + testName(stage.test) + '.';
   }
 

@@ -82,13 +82,14 @@ def one(pattern, where):
     return found[0]
 
 
-def capitalize_you(s):
-    """«вы», «ваш» → «Вы», «Ваш» вне цитат: правило отчёта методолога."""
+def lowercase_you(s):
+    """«Вы», «Ваш» внутри предложения → «вы», «ваш» (вне цитат): так решил владелец
+    теста 16.10.2026. В начале предложения заглавная остаётся."""
     def fix(m):
         if m.group(0).startswith('«'):
             return m.group(0)
-        return m.group(1) + m.group(2)[0].upper() + m.group(2)[1:]
-    return re.sub(r'«[^»]*»|(^|[^А-Яа-яЁё])(вы|вас|вам|вами|ваш[а-яё]*)(?![А-Яа-яЁё])', fix, s)
+        return m.group(1) + m.group(2).lower()
+    return re.sub(r'«[^»]*»|([^.!?…\s«]\s+)(Вы|Вас|Вам|Вами|Ваш[а-яё]*)(?![А-Яа-яЁё])', fix, s)
 
 
 def report_texts():
@@ -109,7 +110,7 @@ def report_texts():
         text = next((ln for ln in lines if not ln.startswith('Было')), '')
         if code not in SUBSKILLS or not text:
             fail(f'{path.name}: «О чём этот навык» — непонятный блок {code}')
-        about[code] = capitalize_you(text)
+        about[code] = lowercase_you(text)
     missing = [c for c in SUBSKILLS if c not in about]
     if missing:
         fail(f'{path.name}: нет «О чём этот навык» для {", ".join(missing)}')
@@ -119,7 +120,7 @@ def report_texts():
     for ln in section('Как тренировать').split('\n'):
         m = re.match(r'^- \*\*(.+?)\*\* — (.+)$', ln.strip())
         if m:
-            training.append({'name': m.group(1), 'text': capitalize_you(m.group(2))})
+            training.append({'name': m.group(1), 'text': lowercase_you(m.group(2))})
         elif re.match(r'^[\w.-]+\.ru$', ln.strip()):
             site = ln.strip()
     if not training:
@@ -154,8 +155,8 @@ def next_step_section(rt):
         for n in (1, 2, 3):
             out.append(f'- уровень {n}: {rt["growth"][code][n]}')
         out.append('')
-    out.append('Правила языка для `has` и `next` (из отчёта методолога): «Вы», «Ваш» — всегда с '
-               'заглавной; без сравнения с другими людьми («лучше многих», «мало кто», «не каждый»); '
+    out.append('Правила языка для `has` и `next` (из отчёта методолога): «вы», «ваш» — со строчной, '
+               'с заглавной только в начале предложения; без сравнения с другими людьми («лучше многих», «мало кто», «не каждый»); '
                'без суждений о личности («по натуре», «Вы из тех, кто»); без оценки числом. Слова '
                'человека можно приводить в кавычках «…». Текст с нарушением человеку не покажут.')
     return '\n'.join(out)

@@ -79,8 +79,8 @@ function judgeAnswers(testId, answers) {
 
 /* Проверка текста для человека по языковым правилам методолога (отчёт
    основной платформы, report-ai.js: запрещённые слова, сравнения с другими,
-   суждения о личности, «Вы» с заглавной). Как у Кати: при нарушении — одна
-   попытка исправления, потом поле не показывается. Заглавную «Вы» правит код
+   суждения о личности). Как у Кати: при нарушении — одна попытка исправления,
+   потом поле не показывается. «вы» со строчной внутри предложения правит код
    сам: это не повод звать судью ещё раз. */
 function checked(parsed, key, model, prompt, userText) {
   var problems = textProblemsAll(parsed);
@@ -130,10 +130,10 @@ function textProblemsAll(verdict) {
   return all;
 }
 
-// «вы», «ваш» → «Вы», «Ваш» вне цитат.
-function capitalizeYou(s) {
-  return String(s || '').replace(/«[^»]*»|(^|[^А-Яа-яЁё])(вы|вас|вам|вами|ваш[а-яё]*)(?![А-Яа-яЁё])/g,
-    function (m, pre, w) { return w ? pre + w.charAt(0).toUpperCase() + w.slice(1) : m; });
+// «Вы», «Ваш» внутри предложения → «вы», «ваш» (вне цитат); в начале предложения заглавная остаётся.
+function lowercaseYou(s) {
+  return String(s || '').replace(/«[^»]*»|([^.!?…\s«]\s+)(Вы|Вас|Вам|Вами|Ваш[а-яё]*)(?![А-Яа-яЁё])/g,
+    function (m, pre, w) { return w ? pre + w.toLowerCase() : m; });
 }
 
 /* Окончательный текст для человека: поле с нарушением не показываем,
@@ -142,7 +142,7 @@ function finishTexts(verdict) {
   Object.keys(verdict).forEach(function (id) {
     var v = verdict[id], notes = [];
     ['has', 'next'].forEach(function (f) {
-      v[f] = capitalizeYou(v[f]);
+      v[f] = lowercaseYou(v[f]);
       var p = textProblems(f, v[f]);
       if (p.length) { notes.push(f + ' скрыт: ' + p.join(', ') + ' — «' + v[f] + '»'); v[f] = ''; }
     });
