@@ -191,8 +191,22 @@ def parse_cases(path):
     im = re.search(r'^## Вводная[^\n]*\n(.*?)(?=^---|^#)', text, re.M | re.S)
     if not im:
         fail(f'{path.name}: нет раздела «## Вводная»')
-    intro = [ln.strip() for ln in im.group(1).split('\n')
-             if ln.strip() and not ln.strip().startswith('*')]
+    # В именной сессии абзац про анонимность и вывод на экран не годится:
+    # его заменяет строка «*В именной сессии вместо этого абзаца:* …».
+    intro, intro_named = [], []
+    NAMED = '*В именной сессии вместо этого абзаца:*'
+    for ln in (x.strip() for x in im.group(1).split('\n')):
+        if not ln:
+            continue
+        if ln.startswith(NAMED):
+            if not intro:
+                fail(f'{path.name}: замена для именной сессии стоит раньше вводной')
+            intro_named[-1] = ln[len(NAMED):].strip()
+        elif not ln.startswith('*'):
+            intro.append(ln)
+            intro_named.append(ln)
+    if intro_named == intro:
+        fail(f'{path.name}: в вводной нет замены для именной сессии ({NAMED} …)')
 
     body = text[:text.index('# Ключи')] if '# Ключи' in text else text
     cases = []
@@ -246,7 +260,7 @@ def parse_cases(path):
             fail(f'{where}: нужны «Ваш комментарий» 1, 2, 3, нашёл {[f["num"] for f in free]}')
         goal = re.search(r'цель — (.+?)\. Что вы', free[0]['text'])
         cases.append({
-            'id': cid, 'name': name.strip(), 'intro': intro, 'news': news,
+            'id': cid, 'name': name.strip(), 'intro': intro, 'introNamed': intro_named, 'news': news,
             'file': f'data/case_{re.sub(r"[^a-z0-9]+", "", name.lower())}.json',
             'situations': situations, 'free': free,
             'goal': goal.group(1) if goal else '',
@@ -301,7 +315,8 @@ def main():
     for t in tests:
         payload = {
             '_': 'Собрано автоматически из spec/. Руками не править.',
-            'id': t['id'], 'name': t['name'], 'intro': t['intro'], 'news': t['news'],
+            'id': t['id'], 'name': t['name'], 'intro': t['intro'], 'introNamed': t['introNamed'],
+            'news': t['news'],
             # в публичный файл уходит только то, что человек видит на экране:
             # ни кода способности, ни уровня реплики
             'situations': [{'id': s['id'], 'num': s['num'], 'title': s['title'],

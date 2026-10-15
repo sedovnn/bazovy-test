@@ -203,7 +203,9 @@
     // Легенда приходит абзацами; первый — крупным, остальные обычным текстом.
     var box = $('introText');
     box.innerHTML = '';
-    TEST.intro.forEach(function (para, i) {
+    // В именной сессии абзац про анонимность заменён: имя спрашиваем, на экран не выводим.
+    var intro = (state.identify && TEST.introNamed) ? TEST.introNamed : TEST.intro;
+    intro.forEach(function (para, i) {
       var el = document.createElement('p');
       el.className = i === 0 ? 'lead' : '';
       el.style.margin = '0 0 14px';

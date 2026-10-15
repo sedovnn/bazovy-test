@@ -44,6 +44,8 @@ for entry in setup['tests']:
 
     checked = 0
     items = [(f'вводная, абзац {i + 1}', para) for i, para in enumerate(data['intro'])]
+    items += [(f'вводная именной сессии, абзац {i + 1}', para)
+              for i, para in enumerate(data.get('introNamed', []))]
     items.append(('новость, заголовок', data['news']['title']))
     for i, para in enumerate(data['news']['post']):
         items.append((f'новость, абзац {i + 1}', para))
