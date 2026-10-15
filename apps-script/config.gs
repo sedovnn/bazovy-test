@@ -6,7 +6,7 @@ var CONFIG = {
   "rulesVersion": "1.1",
   "tests": [
     {
-      "id": "v1.4",
+      "id": "v1.5",
       "name": "Nike · Starbucks · Novo",
       "situations": [
         "s1",
@@ -42,7 +42,7 @@ var CONFIG = {
       ]
     },
     {
-      "id": "v2.3",
+      "id": "v2.4",
       "name": "Intel · bp · Stellantis",
       "situations": [
         "s1",
@@ -149,13 +149,13 @@ var CONFIG = {
     {
       "id": "before",
       "name": "До потока",
-      "test": "v1.4",
+      "test": "v1.5",
       "choose": false
     },
     {
       "id": "after",
       "name": "После потока",
-      "test": "v2.3",
+      "test": "v2.4",
       "choose": false
     },
     {

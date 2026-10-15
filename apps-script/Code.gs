@@ -231,6 +231,11 @@ function checkSession(p) {
   var code = String(p.code || '').toUpperCase();
   var s = findSession(code);
   if (!s) return { ok: false, error: 'no_session' };
+  // Тест сессии мог смениться новой версией: тогда тексты и метки другие,
+  // и пройти его уже нельзя — говорим прямо, а не падаем на загрузке.
+  if (!testById(s.testId)) {
+    return { ok: false, error: 'эта сессия заведена на прежней версии теста. Попросите ведущего завести новую.' };
+  }
   return { ok: true, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify };
 }
 

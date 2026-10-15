@@ -6,16 +6,16 @@ var CONFIG = {
   "rules": "1.1",
   "tests": [
     {
-      "id": "v1.4",
+      "id": "v1.5",
       "name": "Nike · Starbucks · Novo",
-      "file": "data/test_v1_4.json",
-      "v": "bf8c8596"
+      "file": "data/test_v1_5.json",
+      "v": "a64d239f"
     },
     {
-      "id": "v2.3",
+      "id": "v2.4",
       "name": "Intel · bp · Stellantis",
-      "file": "data/test_v2_3.json",
-      "v": "0db0a502"
+      "file": "data/test_v2_4.json",
+      "v": "ed848992"
     }
   ],
   "skills": [
@@ -89,13 +89,13 @@ var CONFIG = {
     {
       "id": "before",
       "name": "До потока",
-      "test": "v1.4",
+      "test": "v1.5",
       "choose": false
     },
     {
       "id": "after",
       "name": "После потока",
-      "test": "v2.3",
+      "test": "v2.4",
       "choose": false
     },
     {
