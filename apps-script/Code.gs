@@ -134,7 +134,7 @@ function responseHeader() {
   CONFIG.abilities.forEach(function (a) {
     head.push(a.id + '_status', a.id + '_level', a.id + '_options', a.id + '_flag',
               a.id + '_slogan', a.id + '_quote', a.id + '_takeaway', a.id + '_unclear',
-              a.id + '_gates', a.id + '_textcheck');
+              a.id + '_gates', a.id + '_textcheck', a.id + '_has', a.id + '_next');
   });
   head.push('judge_status', 'judge_error', 'judge_model',
             'judge_prompt_version', 'rules_version');
@@ -309,7 +309,7 @@ function submit(p) {
 function judgeFields(got) {
   if (!got) {
     return { status: '', level: '', options: '', flag: '', slogan: '',
-             quote: '', takeaway: '', unclear: '', gates: '', textcheck: '', why: '' };
+             quote: '', takeaway: '', unclear: '', gates: '', textcheck: '', has: '', next: '', why: '' };
   }
   var g = got.gates || {};
   var gates = ['2', '3', '4', '5'].map(function (k) {
@@ -327,6 +327,8 @@ function judgeFields(got) {
     unclear: got.unclear || '',
     gates: gates,
     textcheck: got.textcheck || '',
+    has: got.has || '',
+    next: got.next || '',
     why: ''
   };
 }
@@ -466,7 +468,9 @@ function readResponse(column, value) {
                       flag: String(col(a.id + '_flag')) === 'да',
                       slogan: String(col(a.id + '_slogan')) === 'да',
                       quote: String(col(a.id + '_quote') || ''),
-                      takeaway: takeaway, why: takeaway };
+                      takeaway: takeaway, why: takeaway,
+                      has: String(col(a.id + '_has') || ''),
+                      next: String(col(a.id + '_next') || '') };
     });
   }
 

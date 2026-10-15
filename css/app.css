@@ -648,6 +648,8 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   text-transform: uppercase; color: var(--muted-soft);
 }
 .rep-line.is-open { color: var(--muted); }
+.rep-part { margin: 6px 0 0; }
+.rep-part b { font-weight: 600; font-size: var(--fs-dense); color: var(--muted); }
 
 .disclaimer {
   margin: 24px 0 0; font-size: var(--fs-dense); color: var(--muted);
