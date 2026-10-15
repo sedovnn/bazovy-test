@@ -1,0 +1,159 @@
+/* Оформление по брендбуку FP (INSAIM, 2026), поверх app.css.
+   Ссылки на страницы брендбука — в квадратных скобках. */
+
+:root {
+  --col: 680px;
+  /* палитра брендбука [24] */
+  --black: #181818; --gray1: #a6a69f; --gray2: #cacac5; --gray3: #dbdbd9; --gray4: #ededec; --gray5: #f6f6f5;
+  --blue700: #548fd2; --blue500: #89bbf1; --blue300: #b2d4f7;
+  --verm: #ff4800; --verm600: #e63f00;
+  --ink: var(--black);
+  --accent: var(--verm); --accent-dim: var(--verm600);
+  --accent-ink: #c73500;
+  --hairline: var(--gray3);
+  --soft: var(--gray5);
+  --muted: #6b6b66;          /* серый текста: gray1 на белом слишком бледен для чтения */
+  --muted-soft: #75756f;
+  --radius: 4px;
+  /* шкала 1.25, не больше трёх размеров на экране [29, 34] */
+  --t-body: 16px; --t-sub: 20px; --t-head: 31px; --t-small: 13px;
+}
+
+/* одна колонка по центру, внутри — всё влево [27] */
+.frame { max-width: calc(var(--col) + 2 * var(--frame-pad)); }
+.read, .news, .news-fold, .opener, .opts, .question, .hint, .nav-row, .free,
+.answer, #mapProfile, .report, .gap-line, .disclaimer, .train, .judge-fail,
+#introText, .info { max-width: none !important; }
+html, body { overflow-x: clip; }
+
+/* Начертания [26]: заголовки Medium, текст Regular. Интерлиньяж сайта [28]:
+   заголовки 90%, текст 115–120%. */
+body { line-height: 1.2; }
+h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, strong {
+  font-weight: 500 !important;
+}
+.screen-h, .news-title { line-height: 0.95; }
+.screen-h { font-size: var(--t-head); }
+.lead, .news-title, .skill-name { font-size: var(--t-sub); }
+/* задание — размером основного текста, отличается только начертанием Medium */
+.question { font-size: var(--t-body); text-wrap: wrap; }
+.news-body, .opt-text, .rep-part, .opener, .lead, .answer, p { line-height: 1.2; }
+.news-body p, .rep-part { margin-bottom: 10px; }
+
+/* Только строчные [30, 33]: метки, заголовки, кнопки. Наборный текст — как есть. */
+.kicker, .rep-tag, .tag, .screen-h, .btn, .progress-num, #hdrLabel, .nav-note, .opt-note, .news-fold > summary {
+  text-transform: lowercase !important; letter-spacing: 0 !important;
+}
+.kicker, .rep-tag, .news-fold > summary { font-size: var(--t-small); font-weight: 400; color: var(--muted); }
+
+/* Нельзя выделять отдельные слова цветом или жирностью [30] */
+.gap-line b, .train b, .rep-about b { font-weight: 400 !important; color: inherit !important; }
+
+/* Вермилион — CTA и ключевые смыслы [23]; голубой — второстепенные кнопки,
+   интерфейсные блоки, фоновые акценты [23]. */
+.btn-ghost { background: var(--blue500); border-color: var(--blue500); color: var(--black); }
+.btn-ghost:hover { background: var(--blue700); border-color: var(--blue700); color: var(--black); }
+.seg.is-done { background: var(--blue700); }
+.seg.is-now { background: var(--blue500); opacity: 1; }
+.opener { background: var(--blue300); }                 /* интерфейсный блок: реплика ветки */
+.info { background: var(--gray5); }
+.gap-line { background: var(--gray5); border-color: var(--gray3); }
+
+/* Голубой текстовыделитель — для меток-тегов [33] */
+.tag { display: inline; background: var(--blue300); color: var(--black); padding: 0 3px;
+       font-size: var(--t-small); font-weight: 400; text-transform: lowercase; }
+.tag-strong { background: var(--blue300); }
+
+/* Расставленный комментарий — тихо, только залитый номер */
+.opt.is-ranked { background: var(--paper); border-color: var(--hairline); }
+
+/* Паттерн [34]: голубые прямоугольники по сетке, слегка перекрывают заголовок */
+.pattern { position: relative; }
+.pattern i { position: absolute; display: block; height: 14px; background: var(--blue500); z-index: 0; }
+.pattern > *:not(i) { position: relative; z-index: 1; }
+
+/* ---- обводка «ручкой» [33]: овал вермилионом, прорисовывается ---- */
+.oval { position: absolute; left: -7%; top: -24%; width: 114%; height: 148%;
+        pointer-events: none; overflow: visible; z-index: 2; }
+.oval path { fill: none; stroke: var(--verm); stroke-width: 2.2; stroke-linecap: round;
+             vector-effect: non-scaling-stroke;
+             stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: oval-draw .45s ease forwards; }
+@keyframes oval-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .oval path { animation: none; stroke-dashoffset: 0; } }
+.opt { position: relative; }
+.opt.is-current { border-color: transparent; }
+.opt:focus:not(:focus-visible) { outline: none; }
+.circled { position: relative; display: inline-block; white-space: nowrap; }
+.circled-block { position: relative; }
+
+
+
+/* Питер Фьючерс [40–44]: инструмент усиления, а не центр композиции.
+   Только на входе и в ожидании: неформальные экраны, где нет текста для работы.
+   Выглядывает из правого края окна, смотрит на колонку, текст не закрывает. */
+.peter {
+  position: fixed; right: -18px; bottom: 12vh; width: 170px; height: auto;
+  pointer-events: none; user-select: none; z-index: 0;
+  animation: peter-peek 0.9s cubic-bezier(.2,.8,.2,1) 0.6s both;
+}
+.frame > :not(.peter) { position: relative; z-index: 1; }
+@keyframes peter-peek { from { transform: translateX(110%); } to { transform: none; } }
+@media (max-width: 760px) {
+  /* на телефоне колонка во всю ширину: Питер меньше и прижат к низу, под кнопкой */
+  .peter { width: 100px; right: -10px; bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .peter { animation: none; } }
+
+/* Заголовок входа: без капса и без выделения слова цветом [30]. */
+.hero-h { text-transform: none; font-weight: 500; line-height: 0.9; letter-spacing: -0.02em; }
+.hero-h em { color: inherit; }
+
+/* Шапка по системе продуктов [18]: сокращённый логотип fp + название продукта
+   строчными, Inter Tight. Логотип — официальный файл, не перерисовка. */
+.logo { align-items: center; gap: 10px; font-weight: 500; }
+.logo-fp { height: 22px; width: auto; display: block; }
+.logo-prod { margin-left: 0; color: var(--ink); font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
+.hdr-in { padding-top: 18px; padding-bottom: 18px; }
+
+/* Реплика ветки — в овале «ручкой»: это главный смысл экрана */
+.opener { background: none !important; border: 0 !important; padding: 0 !important; margin: 8px 0 40px !important; }
+.opener .tag { display: inline-block; margin-bottom: 14px; }
+.opener-q { position: relative; display: block; width: fit-content; max-width: 100%; box-sizing: border-box; padding: 30px 9%; font-weight: 500; }
+.opener-q .oval { left: 0; width: 100%; top: 0; height: 100%; }
+
+/* Воздух [08]: «чистое пространство». Интерлиньяж остаётся по брендбуку [28],
+   больше расстояния между блоками и внутри карточек. */
+main > .frame { padding-top: 56px; padding-bottom: 72px; }
+main .kicker { margin-bottom: 14px; }
+.screen-h, .hero-h { margin-bottom: 28px; }
+.news { padding: 28px 28px 20px; margin-bottom: 48px; }
+.news-body p { margin-bottom: 16px; }
+.question { margin-bottom: 8px; }
+.hint { margin-bottom: 28px; }
+.opts { gap: 16px; margin-bottom: 48px; }
+.opt { padding: 22px 24px; }
+.read p, #introText p { margin-bottom: 16px; }
+.report > * + * { margin-top: 32px; }
+@media (max-width: 560px) {
+  main > .frame { padding-top: 36px; padding-bottom: 56px; }
+  .news { padding: 20px 18px 12px; }
+  .opener-q { padding: 32px 12%; }
+  .opt { padding: 18px 16px; }
+  .logo-fp { height: 18px; }
+  .logo-prod { font-size: 17px; }
+}
+
+/* Подчёркивание «ручкой» [33, 32]: штрих вермилионом под ключевыми словами.
+   Каждая строка переноса получает свой штрих; прорисовывается слева направо. */
+.pen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 14' preserveAspectRatio='none'%3E%3Cpath d='M3,9 C50,4 120,3 190,6 C235,8 268,10 297,5' fill='none' stroke='%23ff4800' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 0.32em;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  padding-bottom: 0.14em;
+  animation: pen-draw .6s ease .3s both;
+}
+.hero-h .pen { background-size: 100% 0.22em; padding-bottom: 0.08em; }
+@keyframes pen-draw { from { background-size: 0 0.32em; } }
+.hero-h .pen { animation-name: pen-draw-hero; }
+@keyframes pen-draw-hero { from { background-size: 0 0.22em; } }
+@media (prefers-reduced-motion: reduce) { .pen { animation: none; } }

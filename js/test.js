@@ -236,6 +236,7 @@
   function ranked(situation) { return (state.order[situation.id] || []).length; }
   function rankingDone(situation) { return ranked(situation) === situation.options.length; }
 
+  var OVAL = '<svg class="oval" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true"><path d="M12,30 C14,14 70,6 152,7 C238,8 292,15 291,29 C290,44 214,53 128,52 C42,51 10,44 11,28 C11,24 13,20 18,17"/></svg>';
   function renderSituation(focusOptId) {
     // Тест приезжает отдельным запросом. Пока его нет, рисовать нечего:
     // без этой проверки гонка двух запусков оставляла пустой экран.
@@ -278,7 +279,12 @@
 
     $('aFactor').textContent = (TEST.news ? 'Ветка комментариев ' : 'Новость ') +
       (state.step + 1) + ' из ' + TEST.situations.length;
-    $('aOpener').textContent = TEST.news ? s.post.join(' ') : '';
+    // «Кто сказал: «реплика»» — кто сказал голубым выделителем, реплика в овале
+    var post = TEST.news ? s.post.join(' ') : '';
+    var cut = post.match(/^([^:«]{3,40}):\s*(.+)$/);
+    $('aOpener').innerHTML = cut
+      ? '<span class="tag">' + escapeHtml(cut[1].toLowerCase()) + '</span><span class="opener-q">' + escapeHtml(cut[2]) + OVAL + '</span>'
+      : escapeHtml(post);
     $('aOpener').classList.toggle('hidden', !TEST.news);
 
     $('aQuestion').textContent = s.question;
@@ -366,6 +372,15 @@
     $('aFreeText').readOnly = sent;
 
     $('aFreeQ').textContent = q.text;
+    var answering = !$('aFreeText').readOnly && countWords(state.answers[q.id] || '') < CONFIG.minWords;
+    // подчёркивание «ручкой» — на том, на что человек сейчас отвечает: свой комментарий ещё не написан
+    // длинный вопрос — подчёркнута только цель; короткий — целиком
+    if (answering) {
+      var goal = q.text.match(/цель — [^.?]+/);
+      var mark = goal ? goal[0] : (q.text.length < 80 ? q.text : '');
+      var i = mark ? q.text.indexOf(mark) : -1;
+      if (i >= 0) $('aFreeQ').innerHTML = escapeHtml(q.text.slice(0, i)) + '<span class="pen">' + escapeHtml(mark) + '</span>' + escapeHtml(q.text.slice(i + mark.length));
+    }
     if ($('aFreeText').value !== (state.answers[q.id] || '')) {
       $('aFreeText').value = state.answers[q.id] || '';
     }
@@ -544,6 +559,21 @@
     });
 
     $('mapLead').textContent = leadText(rows);
+    var h = document.querySelector('#screenMap .screen-h');
+    if (h && !h.parentNode.classList.contains('pattern')) {
+      var wrap = document.createElement('div');
+      wrap.className = 'pattern';
+      h.parentNode.insertBefore(wrap, h);
+      wrap.appendChild(h);
+      wrap.insertAdjacentHTML('afterbegin', '<i style="right:0;top:-8px;width:22%"></i><i style="left:34%;top:22px;width:18%"></i>');
+    }
+    // сильнейший навык подчёркнут «ручкой»
+    var top = rows.slice().sort(function (x, y) { return y.value - x.value; })[0];
+    var name = top ? top.name.toLowerCase() : '';
+    var lead = $('mapLead'), txt = lead.textContent, at = name ? txt.indexOf(name) : -1;
+    if (at >= 0) {
+      lead.innerHTML = escapeHtml(txt.slice(0, at)) + '<span class="pen">' + escapeHtml(name) + '</span>' + escapeHtml(txt.slice(at + name.length));
+    }
 
     var box = $('mapProfile');
     box.innerHTML = '';
@@ -560,7 +590,7 @@
     box.appendChild(note);
 
     if (gaps.length) {
-      $('gapLine').innerHTML = '<b>В тесте выше, чем в своих ответах.</b> Сильные ходы вы ' +
+      $('gapLine').innerHTML = '<b>В тесте выше, чем в своих ответах.</b> Сильные ходы Вы ' +
         'узнаёте — ' + escapeHtml(list(gaps.map(lower))) + ' — а в своих ответах их не сделали.';
       $('gapLine').classList.remove('hidden');
     } else {
@@ -675,7 +705,9 @@
       var p = document.createElement('p');
       p.className = 'rep-part';
       if (pt[0]) {
-        var b = document.createElement('b');
+        var b = document.createElement('span');
+        // подпись части — голубым текстовыделителем, как теги в брендбуке
+        b.className = 'tag';
         b.textContent = pt[0];
         p.appendChild(b);
         p.appendChild(document.createElement('br'));

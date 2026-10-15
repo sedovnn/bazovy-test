@@ -138,7 +138,7 @@ var MOCK = {
         ok: true,
         title: s ? s.title : 'Демо-сессия',
         stage: s ? s.stage : CONFIG.stages[0].id,
-        testId: s ? s.testId : CONFIG.stages[0].test,
+        testId: s ? s.testId : (CONFIG.stages[0].test || CONFIG.tests[0].id),
         identify: s ? !!s.identify : false
       });
     }
