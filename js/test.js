@@ -27,7 +27,8 @@
     step: 0,            // индекс новости, 0…5
     order: {},          // id новости → id комментариев в порядке расстановки
     shuffled: {},       // id новости → порядок показа комментариев
-    answers: {},        // q1 / q2 → текст
+    answers: {},        // q1 / q2 / q3 → текст
+    sent: {},           // q → true: свой комментарий «до расстановки» отправлен и зафиксирован
     participant: '',
     identify: false,
     /* Ключ отправки. Если сеть оборвалась и человек жмёт «Отправить» снова,
@@ -342,7 +343,7 @@
      и только потом чужие комментарии, чтобы готовые ходы не подсказали его. */
   function freeFirstPending(s) {
     var q = freeOf(s);
-    return !!q && !!s.freeBefore && countWords(state.answers[q.id] || '') < CONFIG.minWords;
+    return !!q && !!s.freeBefore && !(state.sent || {})[q.id];
   }
 
   function renderFree(s) {
@@ -355,6 +356,14 @@
 
     $('aFree').classList.toggle('hidden', !openNow);
     if (!openNow) return;
+
+    // Ответ «до расстановки» отправляется кнопкой и после этого не правится:
+    // иначе его можно переписать, подсмотрев комментарии ветки.
+    var sendable = !!s.freeBefore;
+    var sent = sendable && !!(state.sent || {})[q.id];
+    $('aFreeSend').classList.toggle('hidden', !sendable || sent);
+    $('aFreeSent').classList.toggle('hidden', !sent);
+    $('aFreeText').readOnly = sent;
 
     $('aFreeQ').textContent = q.text;
     if ($('aFreeText').value !== (state.answers[q.id] || '')) {
@@ -374,8 +383,10 @@
     var ok = n >= CONFIG.minWords;
     $('aFreeCount').innerHTML = '<b>' + n + '</b> ' + wordForm(n);
     $('aFreeCount').classList.toggle('is-ok', ok);
-    $('aFreeTarget').textContent = ok ? 'Достаточно, можно дальше.'
+    var before = !!currentSituation().freeBefore;
+    $('aFreeTarget').textContent = ok ? (before ? 'Достаточно — можно отправлять.' : 'Достаточно, можно дальше.')
                                       : 'Минимум ' + CONFIG.minWords + ' слов.';
+    $('aFreeSend').disabled = !ok;
   }
 
   /* Что сейчас мешает нажать «Дальше» — одной фразой под кнопкой. */
@@ -391,7 +402,7 @@
       $('aNext').textContent = last ? 'Отправить' : 'Дальше';
       $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
       $('aNote').textContent = 'Сначала Ваш комментарий — минимум ' + CONFIG.minWords +
-        ' слов. Потом откроются комментарии ветки.';
+        ' слов, затем «Отправить комментарий». Потом откроются комментарии ветки.';
       return;
     }
 
@@ -432,15 +443,23 @@
     $('aFreeText').addEventListener('input', function () {
       var q = freeOf(currentSituation());
       if (!q) return;
-      var wasPending = freeFirstPending(currentSituation());
+      if ($('aFreeText').readOnly) return;
       state.answers[q.id] = $('aFreeText').value;
       save();
       updateCount(q);
-      if (wasPending !== freeFirstPending(currentSituation())) {
-        $('aRank').classList.toggle('hidden', freeFirstPending(currentSituation()));
-        if (!freeFirstPending(currentSituation()) && state.openStep === q.id) markStep(currentSituation().id);
-      }
       updateNav();
+    });
+
+    $('aFreeSend').addEventListener('click', function () {
+      var s = currentSituation();
+      var q = freeOf(s);
+      if (!q || countWords(state.answers[q.id] || '') < CONFIG.minWords) return;
+      if (!state.sent) state.sent = {};
+      state.sent[q.id] = true;
+      save();
+      markStep(s.id);          // дальше время идёт расстановке
+      renderSituation();
+      $('aRank').scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
 
     $('aNext').addEventListener('click', function () {

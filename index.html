@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" /></noscript>
 
-<link rel="stylesheet" href="css/app.css?v=20261015-2128" />
+<link rel="stylesheet" href="css/app.css?v=20261015-2135" />
 </head>
 <body>
 
@@ -122,6 +122,12 @@
       <span class="count" id="aFreeCount"><b>0</b> слов</span>
       <span class="util" id="aFreeTarget"></span>
     </div>
+    <!-- Только там, где свой комментарий пишется до расстановки: отправка
+         фиксирует ответ и открывает комментарии ветки. -->
+    <button class="btn btn-primary btn-sm hidden" id="aFreeSend" type="button" disabled
+            style="margin-top:12px">Отправить комментарий</button>
+    <p class="util hidden" id="aFreeSent" style="margin:12px 0 0">Комментарий отправлен.
+      Теперь расставьте комментарии ветки.</p>
   </div>
 
   <div class="nav-row">
@@ -182,8 +188,8 @@
 
 </main>
 
-<script src="js/config.js?v=20261015-2128"></script>
-<script src="js/api.js?v=20261015-2128"></script>
-<script src="js/test.js?v=20261015-2128"></script>
+<script src="js/config.js?v=20261015-2135"></script>
+<script src="js/api.js?v=20261015-2135"></script>
+<script src="js/test.js?v=20261015-2135"></script>
 </body>
 </html>

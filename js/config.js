@@ -63,7 +63,7 @@ var CONFIG = {
       "id": "starbucks-1.0",
       "name": "Starbucks",
       "file": "data/case_starbucks.json",
-      "v": "de4c0c76",
+      "v": "ca06c011",
       "free": [
         {
           "id": "q1",
