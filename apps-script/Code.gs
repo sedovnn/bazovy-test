@@ -581,9 +581,16 @@ function rejudge(p) {
   };
 }
 
+/* Пишет значение в ячейку по имени столбца. Если столбца ещё нет (повторная
+   оценка строки, записанной до появления нового поля) — дописывает его. */
 function set(sh, rowNum, head, name, value) {
   var col = head.indexOf(name);
-  if (col >= 0) sh.getRange(rowNum, col + 1).setValue(value);
+  if (col < 0) {
+    col = head.length;               // шапка прочитана по всей ширине листа
+    sh.getRange(1, col + 1).setValue(name);
+    head.push(name);
+  }
+  sh.getRange(rowNum, col + 1).setValue(value);
 }
 
 /* ---------- агрегат ---------- */
