@@ -318,7 +318,8 @@ check('у одиночной группы сравнивать нечего', cm
 
 console.log('\n9а. Комментарии группы для разбора');
 const цит = post({ action: 'quotes', code: code });
-check('именная сессия комментариев не отдаёт', цит.ok && цит.named === true);
+check('именная сессия отдаёт комментарии без имён', цит.ok && цит.abilities.some(a => a.items.length) &&
+      !JSON.stringify(цит).includes('Катя Иванова'), JSON.stringify(цит).slice(0, 160));
 const анон = post({ action: 'createSession', title: 'Разбор', stage: 'single', testId: судейский.id });
 post({ action: 'submit', code: анон.code, orderings: {}, answers, submissionId: 'ц-1' });
 const цит2 = post({ action: 'quotes', code: анон.code });

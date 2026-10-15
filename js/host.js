@@ -99,10 +99,6 @@
     API.call('quotes', { code: code }).then(function (res) {
       var box = $('quotesList');
       box.innerHTML = '';
-      if (res.named) {
-        box.innerHTML = '<p class="util">Сессия именная — комментарии на экран не выводятся.</p>';
-        return;
-      }
       var any = false;
       (res.abilities || []).forEach(function (a) {
         if (!a.items.length) return;

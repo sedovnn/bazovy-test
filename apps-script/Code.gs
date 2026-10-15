@@ -632,13 +632,12 @@ function compare(p) {
 
 /* Комментарии группы для разбора у ведущего. По каждой из 4 способностей —
    свои комментарии участников, на которые она нацелена, с уровнем судьи или
-   «уточняется». Ни имён, ни кодов строк: только текст. В именной сессии вывода
-   нет — так обещано участникам в вводной. */
+   «уточняется». Ни имён, ни кодов строк: только текст — и в именной сессии тоже
+   (решение владельца 15.10: имя остаётся в таблице, на экран не уходит). */
 function quotes(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
-  if (session.identify) return { ok: true, named: true, abilities: [] };
   var test = testById(session.testId);
   if (!test) return { ok: true, abilities: [] };
 
@@ -675,7 +674,7 @@ function quotes(p) {
       shortest.shortestStrong = true;
     }
   });
-  return { ok: true, named: false, abilities: out };
+  return { ok: true, abilities: out };
 }
 
 /* Сводка по одному коду сессии из уже прочитанного листа ответов. */

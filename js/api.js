@@ -217,7 +217,6 @@ var MOCK = {
 
     if (action === 'quotes') {
       var sess = db.sessions[p.code] || {};
-      if (sess.identify) return MOCK.delay(200, { ok: true, named: true, abilities: [] });
       var meta = CONFIG.tests.filter(function (t) { return t.id === sess.testId; })[0] || { free: [] };
       var list = CONFIG.abilities.map(function (a) {
         var q = meta.free.filter(function (f) { return f.abilities.indexOf(a.id) >= 0; })[0];
@@ -235,7 +234,7 @@ var MOCK = {
         if (strong.length > 1) strong.reduce(function (m, x) { return x.words < m.words ? x : m; }).shortestStrong = true;
         return { id: a.id, name: a.name, skill: sk.name || '', items: items };
       });
-      return MOCK.delay(300, { ok: true, named: false, abilities: list });
+      return MOCK.delay(300, { ok: true, abilities: list });
     }
 
     return Promise.reject(new Error('Неизвестное действие: ' + action));
