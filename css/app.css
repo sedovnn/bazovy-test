@@ -637,6 +637,19 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   margin: 24px 0 0; font-size: var(--fs-dense); color: var(--muted);
 }
 
+/* «О чём этот навык» — свёрнутая подпись под названием навыка. */
+.rep-about { margin: 6px 0 0; font-size: var(--fs-dense); color: var(--muted); }
+.rep-about summary { cursor: pointer; color: var(--muted-soft); width: fit-content; }
+.rep-about summary:hover { color: var(--ink); }
+.rep-about p { margin: 8px 0 0; line-height: 1.5; }
+.rep-about b { color: var(--ink); font-weight: 600; }
+
+.train { margin: 24px 0 0; font-size: var(--fs-dense); color: var(--muted); }
+.train .kicker { margin: 0 0 8px; }
+.train ul { margin: 0 0 8px; padding-left: 18px; }
+.train li { margin: 6px 0; line-height: 1.5; }
+.train b { color: var(--ink); font-weight: 600; }
+
 .gap-line {
   margin: 24px 0 0;
   padding: 16px;

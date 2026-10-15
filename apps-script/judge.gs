@@ -59,7 +59,7 @@ function judgeAnswers(testId, answer1, answer2) {
   }
 
   var parsed = parseVerdict(first.text);
-  if (parsed) return { ok: true, judge: parsed, error: '', model: model, promptVersion: prompt.version };
+  if (parsed) return checked(parsed, key, model, prompt, userText);
 
   // один повтор — как предписано спекой
   var second = callAnthropic(key, model, prompt.text, userText + '\n\nОтветь только JSON.');
@@ -68,10 +68,87 @@ function judgeAnswers(testId, answer1, answer2) {
   }
 
   parsed = parseVerdict(second.text);
-  if (parsed) return { ok: true, judge: parsed, error: '', model: model, promptVersion: prompt.version };
+  if (parsed) return checked(parsed, key, model, prompt, userText);
 
   return { ok: false, judge: null, model: model, promptVersion: prompt.version,
            error: 'Судья вернул неразборчивый JSON дважды' };
+}
+
+/* Проверка текста для человека по языковым правилам методолога (отчёт
+   основной платформы, report-ai.js: запрещённые слова, сравнения с другими,
+   суждения о личности, «Вы» с заглавной). Как у Кати: при нарушении — одна
+   попытка исправления, потом поле не показывается. Заглавную «Вы» правит код
+   сам: это не повод звать судью ещё раз. */
+function checked(parsed, key, model, prompt, userText) {
+  var problems = textProblemsAll(parsed);
+  if (problems.length) {
+    var again = callAnthropic(key, model, prompt.text, userText +
+      '\n\nВ прошлом ответе тексты для человека нарушали правила языка: ' + problems.join('; ') +
+      '. Соблюдай правила полей has и next. Ответь только JSON.');
+    var second = again.ok ? parseVerdict(again.text) : null;
+    if (second && textProblemsAll(second).length < problems.length) parsed = second;
+  }
+  finishTexts(parsed);
+  return { ok: true, judge: parsed, error: '', model: model, promptVersion: prompt.version };
+}
+
+var TEXT_RULES = [
+  [/уров(ень|ня|ню|нем|не|ни|ней|ням|нями|нях)/i, 'слово «уровень»'],
+  [/(^|[^А-Яа-яЁёA-Za-z])L\s?[1-5]/, 'запись вида L3'],
+  [/(МК|ПП|АК|ПР|ГА)\s?-?\s?[12]/, 'код способности'],
+  [/(^|[^А-Яа-яЁё])[ТИ][0-5]([^А-Яа-яЁё0-9]|$)/, 'служебный код'],
+  [/гейт|границ[аеуыой]|маркер|дисквалификатор|домен|судь[яиеюё]|рубрик|флаг/i, 'служебное слово методологии'],
+  [/участник/i, '«участник» в третьем лице'],
+  [/параллельност|соразмерност|декомпозиц/i, 'жаргон методологии'],
+  [/\d\s*(из|\/)\s*\d|балл/i, 'оценка числом'],
+  [/лучше многих|чем у? ?большинств|чем у других|в отличие от других|встречается редко|редко встречается|мало кто|не каждый/i, 'сравнение с другими'],
+  [/по натуре|скорее всего,? вы|вы из тех|вам свойственно|ваш характер/i, 'суждение о личности']
+];
+var PRAISE = /(^|[^А-Яа-яЁё])(сильн|редк|зрел|целостн|хорош|отличн|блестящ)/i;
+
+// Цитаты «…» из ответа человека проверке не подлежат: в них его слова.
+function unquoted(s) { return String(s || '').replace(/«[^»]*»/g, ' '); }
+
+function textProblems(field, s) {
+  var core = unquoted(s), out = [];
+  if (!core.trim()) return out;
+  TEXT_RULES.forEach(function (r) { if (r[0].test(core)) out.push(r[1]); });
+  if (field === 'has' && PRAISE.test(core)) out.push('похвала');
+  return out;
+}
+
+function textProblemsAll(verdict) {
+  var all = [];
+  Object.keys(verdict).forEach(function (id) {
+    ['has', 'next'].forEach(function (f) {
+      textProblems(f, verdict[id][f]).forEach(function (p) { all.push(id + ' ' + f + ': ' + p); });
+    });
+  });
+  return all;
+}
+
+// «вы», «ваш» → «Вы», «Ваш» вне цитат.
+function capitalizeYou(s) {
+  return String(s || '').replace(/«[^»]*»|(^|[^А-Яа-яЁё])(вы|вас|вам|вами|ваш[а-яё]*)(?![А-Яа-яЁё])/g,
+    function (m, pre, w) { return w ? pre + w.charAt(0).toUpperCase() + w.slice(1) : m; });
+}
+
+/* Окончательный текст для человека: поле с нарушением не показываем,
+   причина уходит в таблицу. */
+function finishTexts(verdict) {
+  Object.keys(verdict).forEach(function (id) {
+    var v = verdict[id], notes = [];
+    ['has', 'next'].forEach(function (f) {
+      v[f] = capitalizeYou(v[f]);
+      var p = textProblems(f, v[f]);
+      if (p.length) { notes.push(f + ' скрыт: ' + p.join(', ') + ' — «' + v[f] + '»'); v[f] = ''; }
+    });
+    var review = v.status === REVIEW;
+    var parts = [v.has, review ? '' : v.next].filter(function (x) { return x; });
+    v.takeaway = parts.length ? parts.join(' ') : '';
+    v.why = v.takeaway;
+    v.textcheck = notes.join('\n');
+  });
 }
 
 function callAnthropic(key, model, system, user) {
@@ -184,7 +261,8 @@ function parseVerdict(raw) {
     function txt(x) { return String(x === undefined || x === null ? '' : x).trim(); }
     // При ручной проверке человек видит только «что есть»; объяснение, что
     // спорно, — для методолога, в таблицу.
-    var parts = [txt(got.has), review ? '' : txt(got.next)].filter(function (x) { return x; });
+    var has = txt(got.has), next = review ? '' : txt(got.next);
+    var parts = [has, next].filter(function (x) { return x; });
     var takeaway = parts.length ? parts.join(' ') : txt(got.takeaway);
     var unclear = review ? txt(got.unclear) : '';
     out[id] = {
@@ -196,6 +274,8 @@ function parseVerdict(raw) {
       slogan: got.slogan === true,
       quote: best,
       takeaway: takeaway,
+      has: has || (parts.length ? '' : takeaway),
+      next: next,
       unclear: unclear,
       why: takeaway      // прежнее поле: старые экраны читают его
     };

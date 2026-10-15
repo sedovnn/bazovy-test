@@ -103,7 +103,8 @@
   }
 
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
+    // \u0022 вместо кавычки: tools/проверить_фронт.py не разбирает регулярки
+    return String(s).replace(/[&<>\u0022]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
@@ -571,28 +572,28 @@
      «умеете»: расстановка показывает узнавание чужого сильного хода. */
   var RECOGNITION = {
     context: [
-      'Пока вам ближе комментарии, которые называют одну причину. Сильнее те, что видят, как причины тянут друг друга.',
-      'Широкий разбор вы замечаете, но иногда ставите выше перечень причин, а не их связь.',
+      'Пока Вам ближе комментарии, которые называют одну причину. Сильнее те, что видят, как причины тянут друг друга.',
+      'Широкий разбор Вы замечаете, но иногда ставите выше перечень причин, а не их связь.',
       'Вы узнаёте разбор, который смотрит дальше новости и связывает причины в цепочку.'
     ],
     alt: [
-      'Пока вам ближе решения из привычной практики своей отрасли.',
-      'Чужой опыт вы цените, но копию не всегда отличаете от осмысленного переноса.',
+      'Пока Вам ближе решения из привычной практики своей отрасли.',
+      'Чужой опыт Вы цените, но копию не всегда отличаете от осмысленного переноса.',
       'Вы узнаёте ход, взятый из другой отрасли с пониманием, почему он там работает.'
     ],
     prio: [
-      'Пока вам ближе выбор, объяснённый одним фактом, а не целью.',
-      'Выбор через цель вы видите, но не всегда отличаете его от сравнения вариантов с названной ценой.',
+      'Пока Вам ближе выбор, объяснённый одним фактом, а не целью.',
+      'Выбор через цель Вы видите, но не всегда отличаете его от сравнения вариантов с названной ценой.',
       'Вы узнаёте выбор, за которым стоит правило и честно названная жертва.'
     ],
     future: [
-      'Пока вам ближе одно уверенное будущее.',
-      'Несколько исходов вы видите, но не всегда замечаете, что именно их разводит.',
+      'Пока Вам ближе одно уверенное будущее.',
+      'Несколько исходов Вы видите, но не всегда замечаете, что именно их разводит.',
       'Вы узнаёте взгляд, где будущее разводит внешняя неопределённость, а не успех компании.'
     ],
     path: [
-      'Пока вам ближе честное снижение цели под ограничения.',
-      'Ресурсы под барьеры вы видите, но не всегда отличаете это от простого «цель держим».',
+      'Пока Вам ближе честное снижение цели под ограничения.',
+      'Ресурсы под барьеры Вы видите, но не всегда отличаете это от простого «цель держим».',
       'Вы узнаёте ход, где ограничение перестаёт быть стеной, а цель остаётся прежней.'
     ]
   };
@@ -608,10 +609,66 @@
     return p;
   }
 
+  /* «О чём этот навык» — тексты методолога по каждой способности навыка,
+     дословно из spec/тексты_отчёта_Кати.md. Свёрнуто: отчёт остаётся
+     коротким, а смысл навыка под рукой. */
+  function aboutBlock(sk) {
+    // строка карты несёт только способность; состав навыка — в конфиге
+    var def = CONFIG.skills.filter(function (x) { return x.id === sk.id; })[0] || {};
+    var codes = (def.factors || []).slice();
+    if (def.ability) codes.push(def.ability);
+    var items = (CONFIG.subskills || []).filter(function (s) { return codes.indexOf(s.id) >= 0; });
+    if (!items.length) return null;
+    var d = document.createElement('details');
+    d.className = 'rep-about';
+    var s = document.createElement('summary');
+    s.textContent = 'О чём этот навык';
+    d.appendChild(s);
+    items.forEach(function (it) {
+      var p = document.createElement('p');
+      var b = document.createElement('b');
+      b.textContent = it.name + '. ';
+      p.appendChild(b);
+      p.appendChild(document.createTextNode(it.about));
+      d.appendChild(p);
+    });
+    return d;
+  }
+
+  /* «Как тренировать» — закреплённая страница методолога, под припиской. */
+  function renderTraining() {
+    var box = $('mapTrain');
+    if (!box || !CONFIG.training || !CONFIG.training.items) return;
+    box.innerHTML = '';
+    var k = document.createElement('p');
+    k.className = 'kicker';
+    k.textContent = 'Как тренировать';
+    box.appendChild(k);
+    var ul = document.createElement('ul');
+    CONFIG.training.items.forEach(function (it) {
+      var li = document.createElement('li');
+      var b = document.createElement('b');
+      b.textContent = it.name;
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(' — ' + it.text));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    if (CONFIG.training.site) {
+      var a = document.createElement('a');
+      a.href = 'https://' + CONFIG.training.site;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = CONFIG.training.site;
+      box.appendChild(a);
+    }
+  }
+
   /* Отчёт: по каждому навыку не больше двух строк. Уровней и кодов нет. */
   function renderReport(res) {
     var box = $('mapReport');
     box.innerHTML = '';
+    renderTraining();
     var judged = res.judge_status === 'ok';
 
     res.map.skills.forEach(function (sk) {
@@ -621,6 +678,8 @@
       name.className = 'skill-name';
       name.textContent = sk.name;
       wrap.appendChild(name);
+      var about = aboutBlock(sk);
+      if (about) wrap.appendChild(about);
 
       var zi = (typeof sk.zoneIndex === 'number') ? sk.zoneIndex : CONFIG.zones.indexOf(sk.zone);
       if (RECOGNITION[sk.id] && zi >= 0) wrap.appendChild(repLine('В тесте', RECOGNITION[sk.id][zi]));

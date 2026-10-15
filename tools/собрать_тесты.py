@@ -59,8 +59,17 @@ SKILLS = [
     ('path',    'Путь к цели',           ['ПП-2'],         'ПП-1'),
 ]
 
-ABILITIES = [('МК-1', 'Амбициозность цели'), ('ГА-1', 'Генерация альтернатив'),
-             ('ПР-1', 'Выбор инициатив'), ('ПП-1', 'Маршрут')]
+# Названия — дословно из методологии v8 (так требует методолог).
+SUBSKILLS = {
+    'МК-1': 'Амбициозность цели', 'МК-2': 'Множественность образов будущего',
+    'ПП-1': 'Декомпозиция цели и выстраивание маршрута',
+    'ПП-2': 'Работа с ресурсами и ограничениями на пути к цели',
+    'АК-1': 'Широта охвата факторов среды', 'АК-2': 'Глубина анализа взаимосвязей',
+    'ПР-1': 'Выбор инициатив', 'ПР-2': 'Основание выбора',
+    'ГА-1': 'Самостоятельная генерация альтернатив', 'ГА-2': 'Привлечение идей из разных областей',
+}
+
+ABILITIES = [(c, SUBSKILLS[c]) for c in ('МК-1', 'ГА-1', 'ПР-1', 'ПП-1')]
 
 LETTERS = ['B', 'C', 'D', 'E']          # по возрастанию: B = L2 … E = L5
 LEVEL_OF = {'B': 2, 'C': 3, 'D': 4, 'E': 5}
@@ -81,6 +90,85 @@ def one(pattern, where):
         fail(f'в spec/ должен лежать ровно один {pattern}, найдено: '
              + (', '.join(f.name for f in found) or 'ничего'))
     return found[0]
+
+
+def capitalize_you(s):
+    """«вы», «ваш» → «Вы», «Ваш» вне цитат: правило отчёта методолога."""
+    def fix(m):
+        if m.group(0).startswith('«'):
+            return m.group(0)
+        return m.group(1) + m.group(2)[0].upper() + m.group(2)[1:]
+    return re.sub(r'«[^»]*»|(^|[^А-Яа-яЁё])(вы|вас|вам|вами|ваш[а-яё]*)(?![А-Яа-яЁё])', fix, s)
+
+
+def report_texts():
+    """Тексты отчёта от методолога: «О чём этот навык», «Как тренировать»,
+    фразы роста для судьи. Файл spec/тексты_отчёта_Кати*.md, разметка — в нём."""
+    path = one('тексты_отчёта_Кати*.md', 'тексты отчёта')
+    src = path.read_text(encoding='utf-8')
+
+    def section(title):
+        m = re.search(r'^## ' + re.escape(title) + r'[^\n]*\n(.*?)(?=^## |\Z)', src, re.M | re.S)
+        if not m:
+            fail(f'{path.name}: нет раздела «## {title}»')
+        return m.group(1)
+
+    about = {}
+    for code, body in re.findall(r'^### (\S+)\n(.*?)(?=^### |\Z)', section('О чём этот навык'), re.M | re.S):
+        lines = [ln.strip() for ln in body.strip().split('\n') if ln.strip()]
+        text = next((ln for ln in lines if not ln.startswith('Было')), '')
+        if code not in SUBSKILLS or not text:
+            fail(f'{path.name}: «О чём этот навык» — непонятный блок {code}')
+        about[code] = capitalize_you(text)
+    missing = [c for c in SUBSKILLS if c not in about]
+    if missing:
+        fail(f'{path.name}: нет «О чём этот навык» для {", ".join(missing)}')
+
+    training = []
+    site = ''
+    for ln in section('Как тренировать').split('\n'):
+        m = re.match(r'^- \*\*(.+?)\*\* — (.+)$', ln.strip())
+        if m:
+            training.append({'name': m.group(1), 'text': capitalize_you(m.group(2))})
+        elif re.match(r'^[\w.-]+\.ru$', ln.strip()):
+            site = ln.strip()
+    if not training:
+        fail(f'{path.name}: в «Как тренировать» нет пунктов')
+
+    growth = {}
+    for code, body in re.findall(r'^### (\S+)\n(.*?)(?=^### |\Z)', section('Фразы роста'), re.M | re.S):
+        growth[code] = {int(n): s.strip() for n, s in re.findall(r'^- ([1-3]): (.+)$', body, re.M)}
+    for code, _ in ABILITIES:
+        if sorted(growth.get(code, {})) != [1, 2, 3]:
+            fail(f'{path.name}: фразы роста для {code} — нужны уровни 1, 2, 3')
+    ver = re.search(r'Версия:\s*([\d.]+)', src)
+    return {'about': about, 'training': training, 'site': site, 'growth': growth,
+            'version': ver.group(1) if ver else '?', 'file': path.name}
+
+
+def next_step_section(rt):
+    """Раздел промпта: как писать «дальше» — по правилу отчёта методолога."""
+    out = ['### Как писать `next` (что попробовать дальше)', '',
+           'Так строится «Следующий шаг» в отчёте методолога. `next` — одно действие, которое человек '
+           'может сделать в следующем ответе. Опора — вопрос сквозной лестницы этого поднавыка для '
+           'границы, следующей за уровнем человека (уровень N → граница N→N+1), и абзац «Чтобы перейти '
+           'на L(N+1)» в методологии. Пиши словами его собственного ответа: что именно добавить или '
+           'изменить в том, что он написал.',
+           '',
+           'Ниже — образцы методолога для уровней 1–3: держись их смысла, но привязывай к ответу '
+           'человека, не копируй. Для уровня 4 образца нет — опирайся только на вопрос границы 4→5. '
+           'На уровне 5 `next` — пустая строка: шага выше нет. При «ручной проверке» — тоже пустая строка.',
+           '']
+    for code, name in ABILITIES:
+        out.append(f'**{code} · {name}**')
+        for n in (1, 2, 3):
+            out.append(f'- уровень {n}: {rt["growth"][code][n]}')
+        out.append('')
+    out.append('Правила языка для `has` и `next` (из отчёта методолога): «Вы», «Ваш» — всегда с '
+               'заглавной; без сравнения с другими людьми («лучше многих», «мало кто», «не каждый»); '
+               'без суждений о личности («по натуре», «Вы из тех, кто»); без оценки числом. Слова '
+               'человека можно приводить в кавычках «…». Текст с нарушением человеку не покажут.')
+    return '\n'.join(out)
 
 
 def tag(test_id, situation_id, text):
@@ -256,6 +344,8 @@ def main():
         # после правки спеки и не перекачивал файл, когда ничего не менялось.
         t['v'] = hashlib.sha1(text.encode('utf-8')).hexdigest()[:8]
 
+    rt = report_texts()
+
     # ---- общая часть: всё, что не зависит от теста ----
     setup = {
         'rules': rules_version,
@@ -263,6 +353,9 @@ def main():
                   for t in tests],
         'skills': [{'id': i, 'name': n, 'factors': f, 'ability': a} for i, n, f, a in SKILLS],
         'abilities': [{'id': i, 'name': n} for i, n in ABILITIES],
+        # «О чём этот навык» и «Как тренировать» — тексты методолога, дословно.
+        'subskills': [{'id': c, 'name': n, 'about': rt['about'][c]} for c, n in SUBSKILLS.items()],
+        'training': {'items': rt['training'], 'site': rt['site']},
         'zones': ['не видит', 'видит, путает', 'выбирает'],
         'minWords': MIN_WORDS,
         # Привязка теста к этапу жёсткая (решение владельца 21.09): «до» и «после»
@@ -341,12 +434,12 @@ def main():
             print(f'  ПРОПУЩЕН {path.name}: в заголовке нет «(тест vX.Y)»')
             continue
         vm2 = re.search(r'v\d+(?:\.\d+)*', path.name)
-        text = (wrapper.rstrip()
+        text = (wrapper.rstrip() + '\n\n' + next_step_section(rt)
                 + '\n\n---\n\n## Часть 2. Профиль применения к мини-формату\n\n' + profile
                 + '\n\n---\n\n## Часть 3. Методология (дословно)\n\n' + method + '\n')
         prompts[m.group(1)] = {
             'version': (vm2.group(0) if vm2 else '?')
-                       + f' · профиль {profile_ver} · методология {method_ver}',
+                       + f' · профиль {profile_ver} · тексты отчёта {rt["version"]} · методология {method_ver}',
             'file': path.name, 'text': text}
 
     lines = []
