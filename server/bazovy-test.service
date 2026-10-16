@@ -7,7 +7,7 @@ After=network.target
 User=bazovy
 WorkingDirectory=/opt/bazovy-test
 EnvironmentFile=/etc/bazovy-test.env
-ExecStart=/usr/bin/node server/server.js
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning server/server.js
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
