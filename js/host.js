@@ -257,9 +257,8 @@
         var a = d.abilities.filter(function (x) { return x.id === aid; })[0];
         if (!a) return;
         out.push('<p><span class="tag">' + esc(aid) + ' · ' + esc(abilityName[aid] || a.name) + '</span> ' +
-          '<b>' + (a.level ? 'уровень ' + a.level : 'нет оценки') + '</b>' +
-          (a.flag ? ' · <span class="warn">флаг: спорная граница</span>' : '') +
-          (a.slogan ? ' · <span class="warn">лозунг</span>' : '') + '</p>');
+          '<b>' + (a.level ? 'уровень ' + a.level : 'нет оценки') + '</b></p>');
+        // флаг и «лозунг» — служебные пометки судьи: остаются в таблице, в разбор не идут
         if (a.gates) out.push('<div class="gates">' + esc(a.gates) + '</div>');
         if (a.has) out.push('<p><b>Сильная сторона:</b> ' + esc(a.has) + '</p>');
         if (a.next) out.push('<p><b>Что можно сделать лучше:</b> ' + esc(a.next) + '</p>');
