@@ -8,7 +8,17 @@
   var REFRESH_MS = 15000;
 
   var code = '';
+  var hostKey = '';      // ключ ведущего: открывает список кандидатов
+  var identify = false;
   var timer = null;
+
+  /* Ключ живёт в ссылке ведущего и запоминается в этом браузере по коду сессии. */
+  function rememberKey(c, k) { try { localStorage.setItem('bt_hostkey_' + c, k); } catch (e) {} }
+  function recallKey(c) { try { return localStorage.getItem('bt_hostkey_' + c) || ''; } catch (e) { return ''; } }
+
+  function hostLink(c, k) {
+    return location.href.replace(/host\.html.*$/, '') + 'host.html?s=' + c + '&k=' + k;
+  }
 
   /* Ссылка на тест: тот же каталог, index.html?s=КОД. */
   function testLink(sessionCode) {
@@ -70,6 +80,15 @@
 
   function showLive(session) {
     code = session.code;
+    hostKey = session.hostKey || recallKey(code);
+    identify = !!session.identify;
+    if (hostKey) {
+      rememberKey(code, hostKey);
+      $('hostLink').textContent = hostLink(code, hostKey);
+      $('hostLinkBox').classList.remove('hidden');
+      // ссылка в адресной строке — с ключом: перезагрузка страницы его не теряет
+      try { history.replaceState(null, '', 'host.html?s=' + code + '&k=' + hostKey); } catch (e) {}
+    }
     $('screenNew').classList.add('hidden');
     $('screenLive').classList.remove('hidden');
 
@@ -89,6 +108,55 @@
     refresh();
     if (timer) clearInterval(timer);
     timer = setInterval(refresh, REFRESH_MS);
+  }
+
+  /* ---- кандидаты именной сессии ---- */
+
+  function refreshCandidates() {
+    $('candBox').classList.toggle('hidden', !identify);
+    $('namesNote').classList.toggle('hidden', identify);
+    if (!identify) return;
+    if (!hostKey) {
+      $('candList').innerHTML = '';
+      $('candNote').textContent = 'Список кандидатов открывается только по ссылке ведущего — той, что ' +
+        'появилась при создании сессии. У сессий, созданных до 16.10.2026, такой ссылки нет: ' +
+        'для интервью заведите новую.';
+      return;
+    }
+    API.call('candidates', { code: code, key: hostKey }).then(function (res) {
+      var ul = $('candList');
+      ul.innerHTML = '';
+      if (!res.items.length) {
+        ul.innerHTML = '<li class="util">Пока никто не отправил ответы.</li>';
+        return;
+      }
+      res.items.forEach(function (it) {
+        var li = document.createElement('li');
+        var name = document.createElement('span');
+        name.className = 'cand-name';
+        name.textContent = it.name;
+        li.appendChild(name);
+        var when = document.createElement('span');
+        when.className = 'util';
+        var d = new Date(it.submittedAt);
+        when.textContent = isNaN(d) ? '' : d.toLocaleString('ru-RU', { day: 'numeric', month: 'long',
+          hour: '2-digit', minute: '2-digit' }) + (it.judged ? '' : ' · ответы ещё не оценены');
+        li.appendChild(when);
+        var a = document.createElement('a');
+        a.className = 'btn btn-ghost btn-sm';
+        a.href = location.href.replace(/host\.html.*$/, '') + 'index.html?r=' + encodeURIComponent(it.rowId);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = 'Открыть результат';
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    }).catch(function (err) {
+      $('candList').innerHTML = '';
+      $('candNote').textContent = err.message === 'no_key'
+        ? 'Ключ в ссылке не подходит к этой сессии. Откройте ссылку ведущего, которую сохранили при создании.'
+        : 'Не получилось загрузить кандидатов: ' + err.message;
+    });
   }
 
   /* ---- комментарии группы ---- */
@@ -166,11 +234,13 @@
     API.summary(code).then(function (res) {
       // при заходе по ссылке host.html?s=КОД название, этап и тест приходят отсюда
       if (res.session) {
+        identify = !!res.session.identify;
         if (res.session.title) $('liveTitle').textContent = res.session.title;
         if (res.session.stage) $('statStage').textContent = stageName(res.session.stage);
         if (res.session.testId) $('statTest').textContent = testName(res.session.testId);
       }
       render(res.summary);
+      refreshCandidates();
       var t = new Date();
       $('refreshNote').textContent = 'обновлено в ' +
         String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
@@ -368,7 +438,7 @@
         })
         .then(function (res) {
           showLive({ code: res.code, title: title, stage: stage.id,
-                     testId: res.testId || testId });
+                     testId: res.testId || testId, identify: identify, hostKey: res.hostKey || '' });
         })
         .catch(function (err) {
           $('newErr').textContent = 'Не получилось создать сессию: ' + err.message;
@@ -396,6 +466,15 @@
       });
     });
 
+    $('copyHostLink').addEventListener('click', function () {
+      navigator.clipboard.writeText(hostLink(code, hostKey)).then(function () {
+        $('copyHostLink').textContent = 'Скопировано';
+        setTimeout(function () { $('copyHostLink').textContent = 'Скопировать ссылку ведущего'; }, 1600);
+      }).catch(function () {
+        $('copyHostLink').textContent = 'Скопируйте вручную';
+      });
+    });
+
     $('openExisting').addEventListener('click', function (e) {
       e.preventDefault();
       var entered = prompt('Код сессии (6 символов)');
@@ -409,12 +488,14 @@
     });
 
     // host.html?s=КОД — вернуться к уже созданной сессии
-    var fromUrl = new URLSearchParams(location.search).get('s');
+    var params = new URLSearchParams(location.search);
+    var fromUrl = params.get('s');
+    var keyFromUrl = (params.get('k') || '').replace(/[^a-f0-9]/gi, '').slice(0, 64);
     if (fromUrl) {
       var clean = fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
       if (clean.length === 6) {
         API.ready().then(function () {
-          showLive({ code: clean, title: '', stage: '', testId: '' });
+          showLive({ code: clean, title: '', stage: '', testId: '', hostKey: keyFromUrl });
         });
       }
     }

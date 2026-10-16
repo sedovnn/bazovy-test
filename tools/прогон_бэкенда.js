@@ -327,6 +327,18 @@ check('по 4 способностям есть комментарии', цит2
       цит2.abilities.every(a => a.items.length === 1), JSON.stringify(цит2).slice(0, 200));
 check('в разборе нет имён и кодов строк', !/row_id|participant|rowId/.test(JSON.stringify(цит2)));
 
+console.log('\n9б. Кандидаты именной сессии — только по ключу ведущего');
+check('ключ ведущего выдаётся при создании, у каждой сессии свой', !!свой.hostKey && свой.hostKey !== анон.hostKey, свой.hostKey);
+check('сводка не выдаёт ключ', !JSON.stringify(post({ action: 'summary', code })).includes(свой.hostKey));
+check('проверка кода не выдаёт ключ', !JSON.stringify(post({ action: 'checkSession', code })).includes(свой.hostKey));
+check('без ключа список не отдаётся', post({ action: 'candidates', code }).ok === false);
+check('с чужим ключом список не отдаётся', post({ action: 'candidates', code, key: анон.hostKey }).ok === false);
+const канд = post({ action: 'candidates', code, key: свой.hostKey });
+check('с ключом — имя и адрес результата', канд.ok && канд.items.length >= 1 &&
+      канд.items.some(x => x.name === 'Катя Иванова' && x.rowId), JSON.stringify(канд).slice(0, 200));
+const канд2 = post({ action: 'candidates', code: анон.code, key: анон.hostKey });
+check('у анонимной сессии кандидатов нет', канд2.ok && канд2.items.length === 0);
+
 console.log('\n10. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
 const версии = JSON.parse(doGet().getContent());

@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261016-0010" />
-<link rel="stylesheet" href="css/brand-host.css?v=20261016-0010" />
+<link rel="stylesheet" href="css/app.css?v=20261016-0945" />
+<link rel="stylesheet" href="css/brand-host.css?v=20261016-0945" />
 </head>
 <body class="op">
 
@@ -50,8 +50,9 @@
         <option value="">Нет — прогон анонимный</option>
         <option value="да">Да — просить имя на входе</option>
       </select>
-      <p class="util" style="margin:6px 0 0">Имя попадает только в таблицу, на этом экране
-        его не будет. Нужно, когда результат надо сопоставить с чем-то ещё.</p>
+      <p class="util" style="margin:6px 0 0">Имя попадает в таблицу и в список кандидатов
+        на этом экране — он открывается только по вашей ссылке ведущего. Нужно для интервью
+        и когда результат надо сопоставить с чем-то ещё.</p>
     </div>
 
     <button class="btn btn-primary" id="newBtn" type="submit">Создать</button>
@@ -80,6 +81,16 @@
       <p style="margin:20px 0 0">
         <button class="btn btn-ghost btn-sm" id="copyLink" type="button">Скопировать ссылку</button>
       </p>
+
+      <!-- Ссылка ведущего с ключом: по ней открывается список кандидатов.
+           Участникам её не показывать — у них только код и QR. -->
+      <div class="info hidden" id="hostLinkBox" style="margin-top:28px">
+        <p class="kicker" style="margin-bottom:6px">Ваша ссылка ведущего</p>
+        <p class="util" style="margin:0 0 10px">Сохраните её: по ней вы вернётесь к сессии и откроете
+          результаты кандидатов. Участникам не отправляйте — им хватает кода.</p>
+        <p class="util" style="margin:0 0 12px;word-break:break-all" id="hostLink"></p>
+        <button class="btn btn-ghost btn-sm" id="copyHostLink" type="button">Скопировать ссылку ведущего</button>
+      </div>
     </div>
 
     <div>
@@ -128,9 +139,18 @@
         <span class="util" id="refreshNote">обновляется раз в 15 секунд</span>
       </p>
 
-      <p class="util" style="margin-top:24px">Имён здесь нет — только сводка по группе и, ниже, комментарии без авторов.</p>
+      <p class="util" style="margin-top:24px" id="namesNote">Имён здесь нет — только сводка по группе и, ниже, комментарии без авторов.</p>
     </div>
 
+  </div>
+
+  <!-- Кандидаты именной сессии: имя и результат. Только по ссылке ведущего с ключом. -->
+  <div class="hidden" id="candBox" style="margin-top:48px">
+    <p class="kicker">Именная сессия</p>
+    <h2 class="op-h">Кандидаты</h2>
+    <p class="util" style="margin:0 0 16px" id="candNote">Результат открывается в новой вкладке —
+      тем же экраном, что видел сам кандидат.</p>
+    <ul class="cand-list" id="candList"></ul>
   </div>
 
   <!-- Комментарии группы для разбора. Список — только ведущему: уровень виден
@@ -165,9 +185,9 @@
 
 </main>
 
-<script src="js/config.js?v=20261016-0010"></script>
-<script src="js/qr.js?v=20261016-0010"></script>
-<script src="js/api.js?v=20261016-0010"></script>
-<script src="js/host.js?v=20261016-0010"></script>
+<script src="js/config.js?v=20261016-0945"></script>
+<script src="js/qr.js?v=20261016-0945"></script>
+<script src="js/api.js?v=20261016-0945"></script>
+<script src="js/host.js?v=20261016-0945"></script>
 </body>
 </html>

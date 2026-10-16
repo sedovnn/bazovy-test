@@ -125,10 +125,13 @@ var MOCK = {
     if (action === 'createSession') {
       var code = MOCK.code();
       var testId = MOCK.testFor(p);
+      var hostKey = Array.from({ length: 40 }, function () { return '0123456789abcdef'.charAt(Math.floor(Math.random() * 16)); }).join('');
       db.sessions[code] = { code: code, title: p.title, stage: p.stage, testId: testId,
-                            identify: !!p.identify, created_at: new Date().toISOString() };
+                            identify: !!p.identify, created_at: new Date().toISOString(),
+                            hostKey: hostKey };
       MOCK.save(db);
-      return MOCK.delay(250, { ok: true, code: code, testId: testId, stage: p.stage });
+      return MOCK.delay(250, { ok: true, code: code, testId: testId, stage: p.stage,
+                               identify: !!p.identify, hostKey: hostKey });
     }
 
     if (action === 'checkSession') {
@@ -152,6 +155,7 @@ var MOCK = {
       var row = {
         rowId: 'mock-' + Date.now(),
         session_code: p.code,
+        participant: (db.sessions[p.code] || {}).identify ? String(p.participant || '').trim() : '',
         stage: p.stage || '',
         testId: p.testId,
         orderings: p.orderings,
@@ -197,7 +201,9 @@ var MOCK = {
     if (action === 'summary') {
       var mine = db.sessions[p.code] || null;
       var rows = db.responses.filter(function (r) { return r.session_code === p.code; });
-      return MOCK.delay(300, { ok: true, session: mine,
+      var pub = mine && { code: mine.code, title: mine.title, stage: mine.stage,
+                          testId: mine.testId, identify: !!mine.identify };   // без ключа, как на бэкенде
+      return MOCK.delay(300, { ok: true, session: pub,
                                summary: MOCK.summary(rows, mine && mine.testId) });
     }
 
@@ -213,6 +219,17 @@ var MOCK = {
                    summary: MOCK.summary(rows2, sess.testId) });
       });
       return MOCK.delay(300, { ok: true, title: title, sessions: out });
+    }
+
+    if (action === 'candidates') {
+      var cs = db.sessions[p.code];
+      if (!cs) return Promise.reject(new Error('no_session'));
+      if (!cs.hostKey || p.key !== cs.hostKey) return Promise.reject(new Error('no_key'));
+      var items = cs.identify ? db.responses.filter(function (r) { return r.session_code === p.code; })
+        .map(function (r) { return { name: r.participant || 'без имени', rowId: r.rowId,
+                                     submittedAt: r.submitted_at, judged: r.judge_status === 'ok' }; })
+        .reverse() : [];
+      return MOCK.delay(200, { ok: true, identify: !!cs.identify, items: items });
     }
 
     if (action === 'quotes') {

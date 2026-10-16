@@ -44,6 +44,7 @@ function doPost(e) {
       case 'compare':       return json(compare(payload));
       case 'rejudge':       return json(rejudge(payload));
       case 'quotes':        return json(quotes(payload));
+      case 'candidates':    return json(candidates(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
     }
   } catch (err) {
@@ -180,6 +181,12 @@ function makeCode() {
   return out;
 }
 
+/* Ключ ведущего: длинный и случайный, его знает только ведущий. По 6-значному
+   коду входят участники — им нельзя видеть то, что открывается по ключу. */
+function makeHostKey() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+}
+
 function createSession(p) {
   var title = String(p.title || '').slice(0, 200);
   var stageId = String(p.stage || CONFIG.stages[0].id);
@@ -213,12 +220,15 @@ function createSession(p) {
   var code = makeCode();
   var guard = 0;
   while (existing[code] && guard++ < 50) code = makeCode();
+  var hostKey = makeHostKey();
 
   withLock(function () {
     appendByHeader(sh, { code: code, title: title, stage: stageId, test_id: testId,
-                         identify: identify ? 'да' : '', created_at: new Date().toISOString() });
+                         identify: identify ? 'да' : '', created_at: new Date().toISOString(),
+                         host_key: hostKey });
   });
-  return { ok: true, code: code, title: title, stage: stageId, testId: testId, identify: identify };
+  return { ok: true, code: code, title: title, stage: stageId, testId: testId, identify: identify,
+           hostKey: hostKey };
 }
 
 function findSession(code) {
@@ -233,7 +243,8 @@ function findSession(code) {
       return c >= 0 ? values[i][c] : '';
     }
     return { code: code, title: col('title'), stage: col('stage'),
-             testId: String(col('test_id') || ''), identify: String(col('identify')) === 'да' };
+             testId: String(col('test_id') || ''), identify: String(col('identify')) === 'да',
+             hostKey: String(col('host_key') || '') };
   }
   return null;
 }
@@ -600,7 +611,7 @@ function summary(p) {
   var session = findSession(code);
   var sh = sheet(SHEET_RESPONSES);
   var values = sh.getDataRange().getValues();
-  return { ok: true, session: session,
+  return { ok: true, session: publicSession(session),
            summary: summarize(values, code, session && session.testId) };
 }
 
@@ -682,6 +693,39 @@ function quotes(p) {
     }
   });
   return { ok: true, abilities: out };
+}
+
+/* Сессия без ключа ведущего: её видит любой, кто знает 6-значный код. */
+function publicSession(s) {
+  if (!s) return s;
+  return { code: s.code, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify };
+}
+
+/* Кандидаты именной сессии — только по ключу ведущего. Имя, время и адрес
+   результата (row_id): результат открывается тем же экраном, что видит
+   сам кандидат. У сессий, заведённых до ключей, списка нет. */
+function candidates(p) {
+  var code = String(p.code || '').toUpperCase();
+  var session = findSession(code);
+  if (!session) return { ok: false, error: 'no_session' };
+  var key = String(p.key || '');
+  if (!session.hostKey || key !== session.hostKey) return { ok: false, error: 'no_key' };
+  if (!session.identify) return { ok: true, identify: false, items: [] };
+
+  var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var iCode = head.indexOf('session_code'), iName = head.indexOf('participant');
+  var iRow = head.indexOf('row_id'), iAt = head.indexOf('submitted_at');
+  var iJudge = head.indexOf('judge_status');
+  var items = [];
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][iCode] !== code) continue;
+    items.push({ name: String(values[i][iName] || '').trim() || 'без имени',
+                 rowId: String(values[i][iRow]), submittedAt: String(values[i][iAt] || ''),
+                 judged: String(values[i][iJudge] || '') === 'ok' });
+  }
+  items.sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
+  return { ok: true, identify: true, items: items };
 }
 
 /* Сводка по одному коду сессии из уже прочитанного листа ответов. */
