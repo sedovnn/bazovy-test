@@ -11,7 +11,7 @@ SSH="ssh -i $KEY -o BatchMode=yes"
 
 sh tools/собрать_сайт.sh
 rsync -az --delete -e "$SSH" public/ "$HOST:/opt/bazovy-test/public/"
-rsync -az -e "$SSH" server/server.js server/worker.js server/sheets.js server/импорт.js "$HOST:/opt/bazovy-test/server/"
+rsync -az -e "$SSH" server/server.js server/worker.js server/sheets.js server/импорт.js server/пересчёт.js "$HOST:/opt/bazovy-test/server/"
 rsync -az -e "$SSH" apps-script/config.gs apps-script/keys.gs apps-script/scoring.gs apps-script/Code.gs "$HOST:/opt/bazovy-test/apps-script/"
 $SSH "$HOST" 'chown -R root:bazovy /opt/bazovy-test && chmod -R u=rwX,g=rX,o= /opt/bazovy-test/server /opt/bazovy-test/apps-script && chmod -R a+rX /opt/bazovy-test/public && systemctl restart bazovy-test && sleep 2 && systemctl is-active bazovy-test && curl -s http://127.0.0.1:8080/api'
 echo

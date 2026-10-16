@@ -339,6 +339,17 @@ check('с ключом — имя и адрес результата', канд.
 const канд2 = post({ action: 'candidates', code: анон.code, key: анон.hostKey });
 check('у анонимной сессии кандидатов нет', канд2.ok && канд2.items.length === 0);
 
+console.log('\n9в. Балл за ветку — «уровень — кого поставил первым»');
+{
+  const k = KEYS[судейский.id].s1, byLevel = {};
+  Object.keys(k).forEach(l => { byLevel[k[l]] = l; });
+  const балл = о => scoreSituation(судейский.id, 's1', о.split('').map(x => byLevel[x]));
+  [['5432', 3], ['4532', 2], ['5243', 2.5], ['4352', 1.5], ['3452', 0.5], ['2543', 0], ['4235', 0], ['2345', 0]]
+    .forEach(([о, ждём]) => check(о + ' → ' + ждём, балл(о) === ждём, балл(о)));
+  check('зоны одной ветки: 0,5 / 1 / 2,5', zoneIndex(0.5, 1) === 0 && zoneIndex(1, 1) === 1 && zoneIndex(2.5, 1) === 2);
+  check('зоны пары: 1,5 / 2 / 5', zoneIndex(1.5, 2) === 0 && zoneIndex(2, 2) === 1 && zoneIndex(5, 2) === 2);
+}
+
 console.log('\n10. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
 const версии = JSON.parse(doGet().getContent());
