@@ -132,7 +132,7 @@ function buildMap(skills, test, orderings, judge) {
       value: combinedValue(sum, max, null),
       ability: sk.ability || null,
       level: null, review: false, flag: false, slogan: false,
-      quote: '', why: '', takeaway: '', has: '', next: ''
+      quote: '', why: '', takeaway: '', has: '', next: '', stronger: null
     };
 
     if (sk.ability && judge && judge[sk.ability]) {
@@ -148,6 +148,7 @@ function buildMap(skills, test, orderings, judge) {
       // «что есть» и «что дальше» — отдельно: на карте у них свои подписи
       row.has = a.has || '';
       row.next = a.next || '';
+      row.stronger = a.stronger || null;
       row.why = row.takeaway;
       row.value = combinedValue(sum, max, row.level);
 

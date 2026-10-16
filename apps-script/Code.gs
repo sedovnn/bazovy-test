@@ -162,7 +162,8 @@ function responseHeader() {
   CONFIG.abilities.forEach(function (a) {
     head.push(a.id + '_status', a.id + '_level', a.id + '_options', a.id + '_flag',
               a.id + '_slogan', a.id + '_quote', a.id + '_takeaway', a.id + '_unclear',
-              a.id + '_gates', a.id + '_textcheck', a.id + '_has', a.id + '_next');
+              a.id + '_gates', a.id + '_textcheck', a.id + '_has', a.id + '_next',
+              a.id + '_stronger_quote', a.id + '_stronger_text', a.id + '_stronger_change');
   });
   head.push('judge_status', 'judge_error', 'judge_model',
             'judge_prompt_version', 'rules_version');
@@ -347,7 +348,8 @@ function submit(p) {
 function judgeFields(got) {
   if (!got) {
     return { status: '', level: '', options: '', flag: '', slogan: '',
-             quote: '', takeaway: '', unclear: '', gates: '', textcheck: '', has: '', next: '', why: '' };
+             quote: '', takeaway: '', unclear: '', gates: '', textcheck: '', has: '', next: '', why: '',
+             stronger_quote: '', stronger_text: '', stronger_change: '' };
   }
   var g = got.gates || {};
   var gates = ['2', '3', '4', '5'].map(function (k) {
@@ -367,7 +369,10 @@ function judgeFields(got) {
     textcheck: got.textcheck || '',
     has: got.has || '',
     next: got.next || '',
-    why: ''
+    why: '',
+    stronger_quote: got.stronger ? got.stronger.quote || '' : '',
+    stronger_text: got.stronger ? got.stronger.text || '' : '',
+    stronger_change: got.stronger ? got.stronger.change || '' : ''
   };
 }
 
@@ -508,7 +513,12 @@ function readResponse(column, value) {
                       quote: String(col(a.id + '_quote') || ''),
                       takeaway: takeaway, why: takeaway,
                       has: String(col(a.id + '_has') || ''),
-                      next: String(col(a.id + '_next') || '') };
+                      next: String(col(a.id + '_next') || ''),
+                      stronger: col(a.id + '_stronger_text')
+                        ? { quote: String(col(a.id + '_stronger_quote') || ''),
+                            text: String(col(a.id + '_stronger_text') || ''),
+                            change: String(col(a.id + '_stronger_change') || '') }
+                        : null };
     });
   }
 
@@ -801,6 +811,10 @@ function candidateDetail(p) {
                flag: String(col(a.id + '_flag') || '') === 'да', slogan: String(col(a.id + '_slogan') || '') === 'да',
                quote: String(col(a.id + '_quote') || ''), gates: String(col(a.id + '_gates') || ''),
                has: String(col(a.id + '_has') || ''), next: String(col(a.id + '_next') || ''),
+               stronger: col(a.id + '_stronger_text')
+                 ? { quote: String(col(a.id + '_stronger_quote') || ''), text: String(col(a.id + '_stronger_text') || ''),
+                     change: String(col(a.id + '_stronger_change') || '') }
+                 : null,
                unclear: String(col(a.id + '_unclear') || '') };
     }),
     skills: CONFIG.skills.map(function (sk) {

@@ -157,3 +157,10 @@ main .kicker { margin-bottom: 14px; }
 .hero-h .pen { animation-name: pen-draw-hero; }
 @keyframes pen-draw-hero { from { background-size: 0 0.22em; } }
 @media (prefers-reduced-motion: reduce) { .pen { animation: none; } }
+
+/* «Как та же мысль звучала бы сильнее»: своя фраза серым, сильная — с ручным подчёркиванием */
+.stronger { display: block; }
+.stronger-line { display: block; margin-top: 6px; }
+.stronger-k { color: var(--muted); }
+.stronger-line:first-child { color: var(--muted); }
+.stronger-line.is-strong { font-weight: 500; }

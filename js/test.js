@@ -714,7 +714,7 @@
         p.appendChild(b);
         p.appendChild(document.createElement('br'));
       }
-      p.appendChild(document.createTextNode(pt[1]));
+      p.appendChild(typeof pt[1] === 'string' ? document.createTextNode(pt[1]) : pt[1]);
       box.appendChild(p);
     });
     return box;
@@ -817,10 +817,12 @@
             'Оценка ответа не получена. Расстановка и текст сохранены, ведущий может запросить разбор повторно.', true));
         } else if (sk.review) {
           wrap.appendChild(repLine('В ответе', 'Уточняется. ' + (sk.takeaway || ''), true));
-        } else if (sk.has || sk.next) {
+        } else if (sk.has || sk.next || sk.stronger) {
+          // «как звучало бы сильнее» показывает, а не советует; без него — прежний совет
           wrap.appendChild(repBlock('В ответе', [
             ['Сильная сторона', sk.has],
-            ['Что можно сделать лучше', sk.next]
+            sk.stronger ? ['Как та же мысль звучала бы сильнее', strongerNode(sk.stronger)]
+                        : ['Что можно сделать лучше', sk.next]
           ]));
         } else if (sk.takeaway || sk.why) {
           // строки, записанные до разделения на две части
@@ -829,6 +831,25 @@
       }
       box.appendChild(wrap);
     });
+  }
+
+  /* Своя фраза → она же сильнее → что изменилось. */
+  function strongerNode(st) {
+    var box = document.createElement('span');
+    box.className = 'stronger';
+    [['Вы написали', st.quote ? '«' + st.quote + '»' : ''], ['Сильнее', st.text], ['Что изменилось', st.change]]
+      .forEach(function (pair) {
+        if (!pair[1]) return;
+        var line = document.createElement('span');
+        line.className = 'stronger-line' + (pair[0] === 'Сильнее' ? ' is-strong' : '');
+        var k = document.createElement('span');
+        k.className = 'stronger-k';
+        k.textContent = pair[0] + ': ';
+        line.appendChild(k);
+        line.appendChild(document.createTextNode(pair[1]));
+        box.appendChild(line);
+      });
+    return box;
   }
 
   /* ---------- возврат к своей карте ---------- */

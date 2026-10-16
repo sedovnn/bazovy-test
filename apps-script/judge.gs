@@ -83,15 +83,16 @@ function judgeAnswers(testId, answers) {
    потом поле не показывается. «вы» со строчной внутри предложения правит код
    сам: это не повод звать судью ещё раз. */
 function checked(parsed, key, model, prompt, userText) {
-  var problems = textProblemsAll(parsed);
+  var ctx = { answers: userText, caseText: String(prompt.text || '').split('### Термины методологии')[0] };
+  var problems = textProblemsAll(parsed, ctx);
   if (problems.length) {
     var again = callAnthropic(key, model, prompt.text, userText +
       '\n\nВ прошлом ответе тексты для человека нарушали правила языка: ' + problems.join('; ') +
-      '. Соблюдай правила полей has и next. Ответь только JSON.');
+      '. Соблюдай правила полей has, next и stronger. Ответь только JSON.');
     var second = again.ok ? parseVerdict(again.text) : null;
-    if (second && textProblemsAll(second).length < problems.length) parsed = second;
+    if (second && textProblemsAll(second, ctx).length < problems.length) parsed = second;
   }
-  finishTexts(parsed);
+  finishTexts(parsed, ctx);
   return { ok: true, judge: parsed, error: '', model: model, promptVersion: prompt.version };
 }
 
@@ -120,14 +121,42 @@ function textProblems(field, s) {
   return out;
 }
 
-function textProblemsAll(verdict) {
+function textProblemsAll(verdict, ctx) {
   var all = [];
   Object.keys(verdict).forEach(function (id) {
     ['has', 'next'].forEach(function (f) {
       textProblems(f, verdict[id][f]).forEach(function (p) { all.push(id + ' ' + f + ': ' + p); });
     });
+    strongerProblems(verdict[id].stronger, ctx).forEach(function (p) { all.push(id + ' stronger: ' + p); });
   });
   return all;
+}
+
+/* «Как звучало бы сильнее» показывается, только если проверка механическая
+   прошла (как в отчёте основной платформы):
+     — цитата дословно есть в ответе человека (куски между «…» — каждый);
+     — числа в «сильнее» — из ответа, из новости или годы;
+     — язык — те же правила, что у has и next. */
+function squash(s) {
+  return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"“”„]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function strongerProblems(st, ctx) {
+  var out = [];
+  if (!st || !st.text) return out;
+  var answers = squash(ctx && ctx.answers);
+  var pieces = String(st.quote || '').split(/…|\.\.\./).map(squash).filter(function (x) { return x.length > 2; });
+  if (!pieces.length) out.push('нет цитаты');
+  else if (pieces.some(function (x) { return answers.indexOf(x) < 0; })) out.push('цитаты нет в ответе');
+  var allowed = squash((ctx && ctx.answers) + ' ' + (ctx && ctx.caseText)).replace(/(\d)[\s\u00a0](?=\d{3})/g, '$1');
+  (String(st.text).replace(/(\d)[\s\u00a0](?=\d{3})/g, '$1').match(/\d+(?:[.,]\d+)?/g) || []).forEach(function (n) {
+    if (/^(19|20)\d\d$/.test(n)) return;
+    if (allowed.indexOf(n) < 0) out.push('число ' + n + ' не из ответа и не из новости');
+  });
+  textProblems('next', st.text).concat(textProblems('next', st.change)).forEach(function (p) {
+    if (out.indexOf(p) < 0) out.push(p);
+  });
+  return out;
 }
 
 // «Вы», «Ваш» внутри предложения → «вы», «ваш» (вне цитат); в начале предложения заглавная остаётся.
@@ -138,9 +167,15 @@ function lowercaseYou(s) {
 
 /* Окончательный текст для человека: поле с нарушением не показываем,
    причина уходит в таблицу. */
-function finishTexts(verdict) {
+function finishTexts(verdict, ctx) {
   Object.keys(verdict).forEach(function (id) {
     var v = verdict[id], notes = [];
+    if (v.stronger && v.stronger.text) {
+      v.stronger.text = lowercaseYou(v.stronger.text);
+      v.stronger.change = lowercaseYou(v.stronger.change);
+      var sp = strongerProblems(v.stronger, ctx);
+      if (sp.length) { notes.push('stronger скрыт: ' + sp.join(', ') + ' — «' + v.stronger.text + '»'); v.stronger = null; }
+    }
     ['has', 'next'].forEach(function (f) {
       v[f] = lowercaseYou(v[f]);
       var p = textProblems(f, v[f]);
@@ -273,6 +308,9 @@ function parseVerdict(raw) {
       takeaway: takeaway,
       has: has || (parts.length ? '' : takeaway),
       next: next,
+      stronger: (got.stronger && typeof got.stronger === 'object' && txt(got.stronger.text))
+        ? { quote: txt(got.stronger.quote), text: txt(got.stronger.text), change: txt(got.stronger.change) }
+        : null,
       unclear: unclear,
       why: takeaway      // прежнее поле: старые экраны читают его
     };

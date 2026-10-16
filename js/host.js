@@ -262,6 +262,9 @@
         if (a.gates) out.push('<div class="gates">' + esc(a.gates) + '</div>');
         if (a.has) out.push('<p><b>Сильная сторона:</b> ' + esc(a.has) + '</p>');
         if (a.next) out.push('<p><b>Что можно сделать лучше:</b> ' + esc(a.next) + '</p>');
+        if (a.stronger) out.push('<p><b>Как та же мысль звучала бы сильнее:</b><br>' +
+          '<span class="muted">Написал(а): «' + esc(a.stronger.quote) + '»</span><br>' +
+          'Сильнее: ' + esc(a.stronger.text) + '<br><span class="muted">Что изменилось: ' + esc(a.stronger.change) + '</span></p>');
         if (a.unclear) out.push('<p class="muted"><b>Что спорно (для методолога):</b> ' + esc(a.unclear) + '</p>');
       });
     });
