@@ -7,6 +7,14 @@
 
 var API_URL = 'https://script.google.com/macros/s/AKfycbzXshbrdDdHR4T2nzSbAx6TlUcNkmZVnHYhGXZWqMjr-9_-UbT5_p3WNaf_1KF3JwPw/exec';
 
+/* На своём сервере (Selectel) бэкенд живёт рядом со страницами: /api.
+   Старый адрес на github.io ходит в Apps Script — по нему открываются
+   ссылки на результаты, выданные до переезда. */
+if (typeof location !== 'undefined' && /^https?:$/.test(location.protocol) &&
+    !/github\.io$/.test(location.hostname)) {
+  API_URL = '/api';
+}
+
 /* ?mock=1 в адресе — принудительно моковый режим на локальной машине:
    пройти тест целиком, ничего не записав в таблицу и не заплатив судье.
    На GitHub Pages ключей нет, поэтому там переключатель просто не сработает. */

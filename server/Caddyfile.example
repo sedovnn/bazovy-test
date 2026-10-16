@@ -1,0 +1,16 @@
+# Блок для Caddy. Страницы — из /opt/bazovy-test/public, бэкенд — на 127.0.0.1:8080.
+# Адрес заменить на настоящий; HTTPS Caddy получит сам, когда DNS укажет на сервер.
+test.fproof.tech {
+	encode gzip
+	handle /api* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle /admin/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle {
+		root * /opt/bazovy-test/public
+		file_server
+	}
+	header /js/* Cache-Control "public, max-age=600"
+}

@@ -45,11 +45,26 @@ function doPost(e) {
       case 'rejudge':       return json(rejudge(payload));
       case 'quotes':        return json(quotes(payload));
       case 'candidates':    return json(candidates(payload));
+      case 'judge':         return json(remoteJudge(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
     }
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
   }
+}
+
+/* ---------- судья для сервера на Selectel ----------
+   Сайт, бэкенд и данные живут на сервере в России. Claude API из России
+   недоступен, поэтому судью сервер зовёт сюда: приходят только тексты трёх
+   ответов — без имени и кода сессии; ключ Anthropic остаётся в свойствах
+   скрипта. Только с секретом JUDGE_SECRET из свойств скрипта. */
+function remoteJudge(p) {
+  var secret = PROP.getProperty('JUDGE_SECRET');
+  if (!secret || String(p.secret || '') !== secret) return { ok: false, error: 'forbidden' };
+  var testId = String(p.testId || '');
+  if (!testById(testId)) return { ok: false, error: 'Неизвестный тест: ' + testId };
+  var texts = (p.texts || []).map(function (t) { return String(t || '').slice(0, 20000); });
+  return { ok: true, verdict: judgeAnswers(testId, texts) };
 }
 
 /* GET отвечает коротко — чтобы можно было проверить, что приложение опубликовано. */

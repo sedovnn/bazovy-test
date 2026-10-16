@@ -1,0 +1,19 @@
+# systemd: /etc/systemd/system/bazovy-test.service
+[Unit]
+Description=Базовый тест (сайт /api и выгрузка)
+After=network.target
+
+[Service]
+User=bazovy
+WorkingDirectory=/opt/bazovy-test
+EnvironmentFile=/etc/bazovy-test.env
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bazovy-test
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
