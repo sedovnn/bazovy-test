@@ -45,6 +45,7 @@ function doPost(e) {
       case 'rejudge':       return json(rejudge(payload));
       case 'quotes':        return json(quotes(payload));
       case 'candidates':    return json(candidates(payload));
+      case 'candidateDetail': return json(candidateDetail(payload));
       case 'judge':         return json(remoteJudge(payload));
       case 'dump':          return json(dump(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
@@ -746,12 +747,68 @@ function candidates(p) {
   var items = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][iCode] !== code) continue;
-    items.push({ name: String(values[i][iName] || '').trim() || 'без имени',
-                 rowId: String(values[i][iRow]), submittedAt: String(values[i][iAt] || ''),
+    items.push({ name: String(values[i][iName] || '').trim() || 'без имени', rowId: String(values[i][iRow]), submittedAt: String(values[i][iAt] || ''),
                  judged: String(values[i][iJudge] || '') === 'ok' });
   }
   items.sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
   return { ok: true, identify: true, items: items };
+}
+
+/* Полный разбор одного прохождения для ведущего — только именная сессия и ключ ведущего:
+   расстановка по каждой ветке с уровнями комментариев, свои комментарии,
+   по каждой способности — уровень, границы с цитатами и тексты для человека.
+   Тексты комментариев фронт берёт из файла кейса: здесь только метки и уровни. */
+function candidateDetail(p) {
+  var code = String(p.code || '').toUpperCase();
+  var session = findSession(code);
+  if (!session) return { ok: false, error: 'no_session' };
+  if (!session.hostKey || String(p.key || '') !== session.hostKey) return { ok: false, error: 'no_key' };
+  if (!session.identify) return { ok: false, error: 'Разбор есть только у именной сессии' };
+
+  var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var iRow = head.indexOf('row_id'), iCode = head.indexOf('session_code');
+  var row = null;
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][iCode] === code && String(values[i][iRow]) === String(p.rowId || '')) { row = values[i]; break; }
+  }
+  if (!row) return { ok: false, error: 'no_result' };
+  function col(name) { var c = head.indexOf(name); return c >= 0 ? row[c] : ''; }
+
+  var testId = String(col('test_id') || session.testId);
+  var test = testById(testId);
+  if (!test) return { ok: false, error: 'Тест ' + testId + ' сменился новой версией' };
+  var key = (typeof KEYS !== 'undefined' && KEYS[testId]) || {};
+
+  return {
+    ok: true,
+    name: String(col('participant') || '').trim() || 'без имени',
+    submittedAt: String(col('submitted_at') || ''),
+    durationSec: Number(col('duration_sec') || 0),
+    testId: testId,
+    situations: test.situations.map(function (sid) {
+      var order = String(col(sid + '_order') || '').split(/\s+/).filter(Boolean);
+      return { id: sid, factor: (test.factors || {})[sid] || '', order: order,
+               levels: order.map(function (l) { return (key[sid] || {})[l] || null; }),
+               score: col(sid + '_score') === '' ? null : Number(col(sid + '_score')) };
+    }),
+    free: test.free.map(function (q) {
+      return { id: q.id, abilities: q.abilities, text: String(col(q.id + '_text') || '') };
+    }),
+    abilities: CONFIG.abilities.map(function (a) {
+      return { id: a.id, name: a.name, status: String(col(a.id + '_status') || ''),
+               level: Number(col(a.id + '_level') || 0) || null,
+               flag: String(col(a.id + '_flag') || '') === 'да', slogan: String(col(a.id + '_slogan') || '') === 'да',
+               quote: String(col(a.id + '_quote') || ''), gates: String(col(a.id + '_gates') || ''),
+               has: String(col(a.id + '_has') || ''), next: String(col(a.id + '_next') || ''),
+               unclear: String(col(a.id + '_unclear') || '') };
+    }),
+    skills: CONFIG.skills.map(function (sk) {
+      return { id: sk.id, name: sk.name, score: col(sk.id + '_score'), zone: col(sk.id + '_zone') };
+    }),
+    judgeStatus: String(col('judge_status') || ''),
+    judgeError: String(col('judge_error') || '')
+  };
 }
 
 /* Сводка по одному коду сессии из уже прочитанного листа ответов. */

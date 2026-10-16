@@ -149,6 +149,12 @@
         a.rel = 'noopener';
         a.textContent = 'Открыть результат';
         li.appendChild(a);
+        var dl = document.createElement('button');
+        dl.type = 'button';
+        dl.className = 'btn btn-ghost btn-sm';
+        dl.textContent = 'Скачать разбор';
+        dl.addEventListener('click', function () { downloadDetail(it, dl); });
+        li.appendChild(dl);
         ul.appendChild(li);
       });
     }).catch(function (err) {
@@ -157,6 +163,112 @@
         ? 'Ключ в ссылке не подходит к этой сессии. Откройте ссылку ведущего, которую сохранили при создании.'
         : 'Не получилось загрузить кандидатов: ' + err.message;
     });
+  }
+
+  /* ---- разбор кандидата файлом ----
+     Расстановка с уровнями комментариев, свои комментарии и аргументация
+     судьи по каждой способности. Один HTML-файл: открывается в любом
+     браузере, печатается в PDF. Тексты кейса — из файла кейса на сайте. */
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>\u0022]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\u0022': '&quot;' }[c];
+    });
+  }
+
+  function downloadDetail(it, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Готовим…';
+    var detail;
+    API.call('candidateDetail', { code: code, key: hostKey, rowId: it.rowId }).then(function (res) {
+      detail = res;
+      var meta = CONFIG.tests.filter(function (t) { return t.id === res.testId; })[0];
+      if (!meta) throw new Error('кейс ' + res.testId + ' не найден');
+      return fetch(meta.file).then(function (r) { return r.json(); });
+    }).then(function (test) {
+      var html = detailHtml(detail, test);
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var a = document.createElement('a');
+      var day = (detail.submittedAt || '').slice(0, 10);
+      a.href = URL.createObjectURL(blob);
+      a.download = 'разбор — ' + detail.name.replace(/[\\/:*?\u0022<>|]/g, ' ') + (day ? ' — ' + day : '') + '.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      btn.textContent = 'Скачать разбор';
+    }).catch(function (err) {
+      btn.textContent = 'Не получилось: ' + err.message;
+    }).then(function () { btn.disabled = false; });
+  }
+
+  function detailHtml(d, test) {
+    var abilityName = {};
+    CONFIG.abilities.forEach(function (a) { abilityName[a.id] = a.name; });
+    var when = new Date(d.submittedAt);
+    var out = [];
+    out.push('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Разбор — ' + esc(d.name) + '</title>' +
+      '<style>body{font:15px/1.45 -apple-system,"Inter Tight",Arial,sans-serif;color:#181818;max-width:820px;margin:32px auto;padding:0 20px}' +
+      'h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;margin:36px 0 10px;border-top:1px solid #dbdbd9;padding-top:18px}' +
+      'h3{font-size:16px;margin:22px 0 6px}.muted{color:#6b6b66}.lvl{display:inline-block;min-width:82px;margin-right:6px;font-weight:600}' +
+      'ol{padding-left:22px}li{margin:6px 0}.ans{white-space:pre-wrap;background:#f6f6f5;padding:12px 14px;border-radius:4px}' +
+      '.gates{white-space:pre-wrap;font-size:14px;background:#f6f6f5;padding:10px 14px;border-radius:4px}' +
+      '.tag{background:#b2d4f7;padding:0 4px;font-size:13px}.warn{color:#cc3700}</style></head><body>');
+    out.push('<h1>' + esc(d.name) + '</h1>');
+    out.push('<p class="muted">Кейс: ' + esc(test.name || d.testId) + ' · ' +
+      (isNaN(when) ? '' : when.toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })) +
+      (d.durationSec ? ' · на тест ушло ' + Math.round(d.durationSec / 60) + ' мин' : '') + '</p>');
+    if (d.judgeStatus !== 'ok') out.push('<p class="warn">Судья не оценил ответы: ' + esc(d.judgeError || 'нет оценки') + '</p>');
+
+    // карта
+    out.push('<h2>Карта</h2><ul>');
+    d.skills.forEach(function (sk) {
+      var zone = typeof sk.zone === 'number' || /^\d$/.test(String(sk.zone)) ? (CONFIG.zones || [])[Number(sk.zone)] : sk.zone;
+      out.push('<li><b>' + esc(sk.name) + '</b> — расстановка: ' + esc(sk.score === '' ? '—' : sk.score) +
+               (zone ? ' (' + esc(zone) + ')' : '') + '</li>');
+    });
+    out.push('</ul>');
+
+    // расстановка
+    out.push('<h2>Расстановка комментариев</h2><p class="muted">В порядке, который поставил участник: 1 — «написал бы сам». ' +
+      'Уровень комментария — по методологии (5 — самый сильный). Идеальный порядок — 5, 4, 3, 2; балл за ветку — от 0 до 3.</p>');
+    d.situations.forEach(function (sit, n) {
+      var ts = (test.situations || []).filter(function (x) { return x.id === sit.id; })[0] || { options: [], post: [] };
+      var textOf = {};
+      ts.options.forEach(function (o) { textOf[o.id] = o.text; });
+      out.push('<h3>Ветка ' + (n + 1) + ' · ' + esc(sit.factor) + ' — балл ' + (sit.score === null ? '—' : sit.score) + ' из 3</h3>');
+      if (ts.post && ts.post.length) out.push('<p class="muted">' + esc(ts.post.join(' ')) + '</p>');
+      if (!sit.order.length) { out.push('<p class="muted">Не расставлено.</p>'); return; }
+      out.push('<ol>');
+      sit.order.forEach(function (label, i) {
+        out.push('<li><span class="lvl">уровень ' + (sit.levels[i] || '?') + '</span>' + esc(textOf[label] || label) + '</li>');
+      });
+      out.push('</ol>');
+    });
+
+    // свои комментарии и судья
+    out.push('<h2>Свои комментарии и оценка судьи</h2>');
+    d.free.forEach(function (q, n) {
+      var tq = (test.free || []).filter(function (x) { return x.id === q.id; })[0] || {};
+      out.push('<h3>Комментарий ' + (n + 1) + '</h3>');
+      if (tq.text) out.push('<p class="muted">Вопрос: ' + esc(tq.text) + '</p>');
+      out.push('<div class="ans">' + (q.text ? esc(q.text) : '<span class="muted">пусто</span>') + '</div>');
+      q.abilities.forEach(function (aid) {
+        var a = d.abilities.filter(function (x) { return x.id === aid; })[0];
+        if (!a) return;
+        out.push('<p><span class="tag">' + esc(aid) + ' · ' + esc(abilityName[aid] || a.name) + '</span> ' +
+          '<b>' + (a.level ? 'уровень ' + a.level : 'нет оценки') + '</b>' +
+          (a.flag ? ' · <span class="warn">флаг: спорная граница</span>' : '') +
+          (a.slogan ? ' · <span class="warn">лозунг</span>' : '') + '</p>');
+        if (a.gates) out.push('<div class="gates">' + esc(a.gates) + '</div>');
+        if (a.has) out.push('<p><b>Сильная сторона:</b> ' + esc(a.has) + '</p>');
+        if (a.next) out.push('<p><b>Что можно сделать лучше:</b> ' + esc(a.next) + '</p>');
+        if (a.unclear) out.push('<p class="muted"><b>Что спорно (для методолога):</b> ' + esc(a.unclear) + '</p>');
+      });
+    });
+    out.push('<p class="muted" style="margin-top:40px">Границы уровней: «1→2: да «цитата»» — судья нашёл в ответе признак ' +
+      'следующего уровня и привёл фрагмент. Уровень — сколько границ подряд пройдено.</p>');
+    out.push('</body></html>');
+    return out.join('\n');
   }
 
   /* ---- комментарии группы ---- */

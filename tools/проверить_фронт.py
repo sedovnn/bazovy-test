@@ -25,7 +25,7 @@ BROWSER = {
     'Number', 'Boolean', 'Promise', 'Error', 'RegExp', 'Map', 'Set', 'parseInt', 'parseFloat',
     'isNaN', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'fetch', 'alert',
     'prompt', 'confirm', 'encodeURIComponent', 'decodeURIComponent', 'escape', 'unescape',
-    'URLSearchParams', 'Event', 'AbortController', 'TextEncoder', 'Uint8Array', 'localStorage',
+    'URLSearchParams', 'Blob', 'Event', 'AbortController', 'TextEncoder', 'Uint8Array', 'localStorage',
     'sessionStorage', 'navigator', 'location', 'require', 'module', 'if', 'for', 'while',
     'switch', 'catch', 'return', 'typeof', 'function', 'new', 'else', 'do', 'in', 'of',
 }
