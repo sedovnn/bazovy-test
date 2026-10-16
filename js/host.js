@@ -223,19 +223,20 @@
     out.push('<h2>Карта</h2><ul>');
     d.skills.forEach(function (sk) {
       var zone = typeof sk.zone === 'number' || /^\d$/.test(String(sk.zone)) ? (CONFIG.zones || [])[Number(sk.zone)] : sk.zone;
-      out.push('<li><b>' + esc(sk.name) + '</b> — расстановка: ' + esc(sk.score === '' ? '—' : sk.score) +
+      out.push('<li><b>' + esc(sk.name) + '</b> — расстановка: ' + esc(sk.score === '' ? '—' : String(sk.score).replace('.', ',')) +
                (zone ? ' (' + esc(zone) + ')' : '') + '</li>');
     });
     out.push('</ul>');
 
     // расстановка
     out.push('<h2>Расстановка комментариев</h2><p class="muted">В порядке, который поставил участник: 1 — «написал бы сам». ' +
-      'Уровень комментария — по методологии (5 — самый сильный). Идеальный порядок — 5, 4, 3, 2; балл за ветку — от 0 до 3.</p>');
+      'Уровень комментария — по методологии (5 — самый сильный). Балл за ветку, 0–3: уровень комментария на первом месте ' +
+      '(5 → 3, 4 → 2, 3 → 1, 2 → 0), минус 0,5, если остальные не по убыванию; 0, если порядок похож на случайный.</p>');
     d.situations.forEach(function (sit, n) {
       var ts = (test.situations || []).filter(function (x) { return x.id === sit.id; })[0] || { options: [], post: [] };
       var textOf = {};
       ts.options.forEach(function (o) { textOf[o.id] = o.text; });
-      out.push('<h3>Ветка ' + (n + 1) + ' · ' + esc(sit.factor) + ' — балл ' + (sit.score === null ? '—' : sit.score) + ' из 3</h3>');
+      out.push('<h3>Ветка ' + (n + 1) + ' · ' + esc(sit.factor) + ' — балл ' + (sit.score === null ? '—' : String(sit.score).replace('.', ',')) + ' из 3</h3>');
       if (ts.post && ts.post.length) out.push('<p class="muted">' + esc(ts.post.join(' ')) + '</p>');
       if (!sit.order.length) { out.push('<p class="muted">Не расставлено.</p>'); return; }
       out.push('<ol>');
