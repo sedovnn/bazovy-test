@@ -42,3 +42,6 @@ public/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+# секреты сервера: судья и выгрузка
+server/секреты.env

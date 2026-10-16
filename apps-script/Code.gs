@@ -46,6 +46,7 @@ function doPost(e) {
       case 'quotes':        return json(quotes(payload));
       case 'candidates':    return json(candidates(payload));
       case 'judge':         return json(remoteJudge(payload));
+      case 'dump':          return json(dump(payload));
       default:              return json({ ok: false, error: 'Неизвестное действие: ' + payload.action });
     }
   } catch (err) {
@@ -65,6 +66,16 @@ function remoteJudge(p) {
   if (!testById(testId)) return { ok: false, error: 'Неизвестный тест: ' + testId };
   var texts = (p.texts || []).map(function (t) { return String(t || '').slice(0, 20000); });
   return { ok: true, verdict: judgeAnswers(testId, texts) };
+}
+
+/* Разовый перенос обоих листов на сервер Selectel (решение владельца 16.10.2026).
+   Только с тем же секретом JUDGE_SECRET; после переезда действие можно убрать. */
+function dump(p) {
+  var secret = PROP.getProperty('JUDGE_SECRET');
+  if (!secret || String(p.secret || '') !== secret) return { ok: false, error: 'forbidden' };
+  return { ok: true,
+           sessions: sheet(SHEET_SESSIONS).getDataRange().getValues(),
+           responses: sheet(SHEET_RESPONSES).getDataRange().getValues() };
 }
 
 /* GET отвечает коротко — чтобы можно было проверить, что приложение опубликовано. */
