@@ -222,13 +222,13 @@ console.log('\n2а. Спорная граница — уровень есть в
 fetchMode = 'спорно';
 const rr = post({ action: 'submit', code, orderings, answers, submissionId: 'ключ-спорно' });
 const буд = rr.map.skills.filter(sk => sk.ability === 'МК-1')[0];
-check('модель вернула «ручную проверку» — уровень всё равно стоит, по пройденным границам',
-      буд.level === 3 && буд.review === false, JSON.stringify(буд));
+check('модель вернула «ручную проверку» — уровень по пройденным границам, спорная засчитана (да, да, спорно → 4)',
+      буд.level === 4 && буд.review === false, JSON.stringify(буд));
 check('человек видит и «что есть», и «что дальше»', буд.takeaway === 'Вы назвали сервис. Покажите, что дальше.', буд.takeaway);
 check('сомнение помечено флагом', буд.flag === true);
 const rowR = sheets['responses']._rows[sheets['responses']._rows.length - 1];
 check('в таблице статус «оценено» и уровень',
-      rowR[h.indexOf('МК-1_status')] === 'оценено' && String(rowR[h.indexOf('МК-1_level')]) === '3');
+      rowR[h.indexOf('МК-1_status')] === 'оценено' && String(rowR[h.indexOf('МК-1_level')]) === '4');
 check('объяснение спорного — в таблицу', /Неясно, сервис\..*взят по пройденным границам/.test(rowR[h.indexOf('МК-1_unclear')]));
 const сводкаR = post({ action: 'summary', code }).summary.skills.filter(sk => sk.ability === 'МК-1')[0];
 check('в сводке уточнений нет', сводкаR.review === 0, JSON.stringify(сводкаR));
@@ -342,6 +342,18 @@ check('с ключом — имя и адрес результата', канд.
       канд.items.some(x => x.name === 'Катя Иванова' && x.rowId), JSON.stringify(канд).slice(0, 200));
 const канд2 = post({ action: 'candidates', code: анон.code, key: анон.hostKey });
 check('у анонимной сессии кандидатов нет', канд2.ok && канд2.items.length === 0);
+
+console.log('\n9в0. Спорная граница не снижает уровень');
+{
+  const raw = (lvl, st) => '```json\n' + JSON.stringify(Object.fromEntries(CONFIG.abilities.map(a =>
+    [a.id, вердикт(lvl, st, 'сервис')]))) + '\n```';
+  const v1 = parseVerdict(raw(2, ['да', 'да', 'спорно', 'нет']));
+  check('да, да, спорно, а судья поставил 2 → 4 с флагом', v1['МК-1'].level === 4 && v1['МК-1'].flag === true, JSON.stringify(v1['МК-1'].level));
+  const v2 = parseVerdict(raw(3, ['да', 'да', 'нет', 'нет']));
+  check('без спорных уровень судьи не трогаем', v2['МК-1'].level === 3 && v2['МК-1'].flag === false, JSON.stringify(v2['МК-1']));
+  const v3 = parseVerdict(raw(5, ['да', 'да', 'нет', 'да']));
+  check('немонотонный случай (выше подряд пройденных) — не понижаем', v3['МК-1'].level === 5);
+}
 
 console.log('\n9в. Балл за ветку — «уровень — кого поставил первым»');
 {

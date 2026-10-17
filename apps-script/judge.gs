@@ -280,10 +280,19 @@ function parseVerdict(raw) {
     var asked = String(got.status || '').toLowerCase().indexOf('ручн') >= 0;
     var level = Number(got.level);
     var fallback = asked || !(level >= 1 && level <= 5);
-    if (fallback) {
-      level = 1;
-      for (var g2 = 0; g2 < GATE_KEYS.length && gates[GATE_KEYS[g2]].s === 'да'; g2++) level++;
+    /* Спорная граница — в пользу человека (профиль 5.5, решение владельца
+       16.10.2026): засчитывается в уровень. Считаем подряд пройденные
+       границы вместе со спорными; если судья поставил ниже — поднимаем. */
+    var passed = 1, disputed = false;
+    for (var g2 = 0; g2 < GATE_KEYS.length; g2++) {
+      var s2 = gates[GATE_KEYS[g2]].s;
+      if (s2 !== 'да' && s2 !== 'спорно') break;
+      if (s2 === 'спорно') disputed = true;
+      passed++;
     }
+    var raised = false;
+    if (fallback) level = passed;
+    else if (disputed && level < passed) { level = passed; raised = true; }
     level = Math.round(level);
 
     /* Вывод для человека судья пишет двумя полями: «что есть» и «дальше».
@@ -296,13 +305,15 @@ function parseVerdict(raw) {
     var takeaway = parts.length ? parts.join(' ') : txt(got.takeaway);
     var unclear = txt(got.unclear);
     if (fallback) unclear = (unclear ? unclear + ' ' : '') +
-      '[Судья не дал уровня — взят по пройденным границам подряд.]';
+      '[Судья не дал уровня — взят по пройденным границам подряд, спорные засчитаны.]';
+    if (raised) unclear = (unclear ? unclear + ' ' : '') +
+      '[Уровень поднят до ' + level + ': спорная граница засчитана в пользу участника.]';
     out[id] = {
       status: 'оценено',
       level: level,
       options: [],
       gates: gates,
-      flag: got.flag === true || fallback,
+      flag: got.flag === true || fallback || disputed,
       slogan: got.slogan === true,
       quote: best,
       takeaway: takeaway,
