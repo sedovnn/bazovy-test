@@ -8,17 +8,8 @@
   var REFRESH_MS = 15000;
 
   var code = '';
-  var hostKey = '';      // ключ ведущего: открывает список кандидатов
   var identify = false;
   var timer = null;
-
-  /* Ключ живёт в ссылке ведущего и запоминается в этом браузере по коду сессии. */
-  function rememberKey(c, k) { try { localStorage.setItem('bt_hostkey_' + c, k); } catch (e) {} }
-  function recallKey(c) { try { return localStorage.getItem('bt_hostkey_' + c) || ''; } catch (e) { return ''; } }
-
-  function hostLink(c, k) {
-    return location.href.replace(/host\.html.*$/, '') + 'host.html?s=' + c + '&k=' + k;
-  }
 
   /* Ссылка на тест: тот же каталог, index.html?s=КОД. */
   function testLink(sessionCode) {
@@ -78,19 +69,67 @@
 
   /* ---- живой экран ---- */
 
+  /* ---- экраны кабинета: вход → все сессии → сессия / новая ---- */
+
+  var SCREENS = ['screenLogin', 'screenList', 'screenNew', 'screenLive'];
+  function screen(id) {
+    SCREENS.forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
+    if (id !== 'screenLive' && timer) { clearInterval(timer); timer = null; }
+    window.scrollTo(0, 0);
+  }
+
+  function toLogin() {
+    try { localStorage.removeItem('bt_host_token'); } catch (e) {}
+    try { history.replaceState(null, '', 'host.html'); } catch (e) {}
+    screen('screenLogin');
+    $('loginInput').focus();
+  }
+
+  function needLogin(err) { return err && /need_login/.test(err.message); }
+
+  function fmtDate(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function toList() {
+    try { history.replaceState(null, '', 'host.html'); } catch (e) {}
+    screen('screenList');
+    $('exportAll').href = 'admin/export.csv?token=' + encodeURIComponent(API.token());
+    var tb = $('sessTable').querySelector('tbody');
+    tb.innerHTML = '<tr><td colspan="8" class="util">Загружаем…</td></tr>';
+    API.call('listSessions', {}).then(function (res) {
+      tb.innerHTML = '';
+      var list = res.sessions || [];
+      list.forEach(function (s) {
+        var tr = document.createElement('tr');
+        tr.className = 'sess-row' + (s.current ? '' : ' is-old');
+        [fmtDate(s.createdAt), s.title || '—', s.code, stageName(s.stage),
+         s.current ? testName(s.testId) : 'прежний формат', s.identify ? 'да' : '',
+         String(s.count), s.lastAt ? fmtDate(s.lastAt) : '—'].forEach(function (t) { tr.appendChild(cell(t)); });
+        tr.tabIndex = 0;
+        var open = function () {
+          showLive({ code: s.code, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify });
+        };
+        tr.addEventListener('click', open);
+        tr.addEventListener('keydown', function (e) { if (e.key === 'Enter') open(); });
+        tb.appendChild(tr);
+      });
+      $('sessNote').textContent = list.length
+        ? 'Сессий: ' + list.length + '. Нажмите на строку, чтобы открыть сессию.'
+        : 'Сессий пока нет — создайте первую.';
+    }).catch(function (err) {
+      if (needLogin(err)) return toLogin();
+      tb.innerHTML = '';
+      $('sessNote').textContent = 'Не получилось загрузить список: ' + err.message;
+    });
+  }
+
   function showLive(session) {
     code = session.code;
-    hostKey = session.hostKey || recallKey(code);
     identify = !!session.identify;
-    if (hostKey) {
-      rememberKey(code, hostKey);
-      $('hostLink').textContent = hostLink(code, hostKey);
-      $('hostLinkBox').classList.remove('hidden');
-      // ссылка в адресной строке — с ключом: перезагрузка страницы его не теряет
-      try { history.replaceState(null, '', 'host.html?s=' + code + '&k=' + hostKey); } catch (e) {}
-    }
-    $('screenNew').classList.add('hidden');
-    $('screenLive').classList.remove('hidden');
+    try { history.replaceState(null, '', 'host.html?s=' + code); } catch (e) {}
+    screen('screenLive');
 
     $('liveCode').textContent = code;
     $('liveTitle').textContent = session.title || '';
@@ -116,14 +155,7 @@
     $('candBox').classList.toggle('hidden', !identify);
     $('namesNote').classList.toggle('hidden', identify);
     if (!identify) return;
-    if (!hostKey) {
-      $('candList').innerHTML = '';
-      $('candNote').textContent = 'Список кандидатов открывается только по ссылке ведущего — той, что ' +
-        'появилась при создании сессии. У сессий, созданных до 16.10.2026, такой ссылки нет: ' +
-        'для интервью заведите новую.';
-      return;
-    }
-    API.call('candidates', { code: code, key: hostKey }).then(function (res) {
+    API.call('candidates', { code: code }).then(function (res) {
       var ul = $('candList');
       ul.innerHTML = '';
       if (!res.items.length) {
@@ -159,9 +191,8 @@
       });
     }).catch(function (err) {
       $('candList').innerHTML = '';
-      $('candNote').textContent = err.message === 'no_key'
-        ? 'Ключ в ссылке не подходит к этой сессии. Откройте ссылку ведущего, которую сохранили при создании.'
-        : 'Не получилось загрузить кандидатов: ' + err.message;
+      if (needLogin(err)) return toLogin();
+      $('candNote').textContent = 'Не получилось загрузить кандидатов: ' + err.message;
     });
   }
 
@@ -180,7 +211,7 @@
     btn.disabled = true;
     btn.textContent = 'Готовим…';
     var detail;
-    API.call('candidateDetail', { code: code, key: hostKey, rowId: it.rowId }).then(function (res) {
+    API.call('candidateDetail', { code: code, rowId: it.rowId }).then(function (res) {
       detail = res;
       var meta = CONFIG.tests.filter(function (t) { return t.id === res.testId; })[0];
       if (!meta) throw new Error('кейс ' + res.testId + ' не найден');
@@ -361,6 +392,7 @@
         String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
       return refreshCompare();
     }).catch(function (err) {
+      if (needLogin(err)) return toLogin();
       $('refreshNote').textContent = 'не обновилось: ' + err.message;
     });
   }
@@ -553,9 +585,10 @@
         })
         .then(function (res) {
           showLive({ code: res.code, title: title, stage: stage.id,
-                     testId: res.testId || testId, identify: identify, hostKey: res.hostKey || '' });
+                     testId: res.testId || testId, identify: identify });
         })
         .catch(function (err) {
+          if (needLogin(err)) return toLogin();
           $('newErr').textContent = 'Не получилось создать сессию: ' + err.message;
           $('newErr').classList.remove('hidden');
         })
@@ -581,39 +614,37 @@
       });
     });
 
-    $('copyHostLink').addEventListener('click', function () {
-      navigator.clipboard.writeText(hostLink(code, hostKey)).then(function () {
-        $('copyHostLink').textContent = 'Скопировано';
-        setTimeout(function () { $('copyHostLink').textContent = 'Скопировать ссылку ведущего'; }, 1600);
-      }).catch(function () {
-        $('copyHostLink').textContent = 'Скопируйте вручную';
-      });
-    });
-
-    $('openExisting').addEventListener('click', function (e) {
+    $('loginForm').addEventListener('submit', function (e) {
       e.preventDefault();
-      var entered = prompt('Код сессии (6 символов)');
-      if (!entered) return;
-      var clean = entered.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-      if (clean.length === 6) {
-        API.ready().then(function () {
-          showLive({ code: clean, title: '', stage: '', testId: '' });
-        });
-      }
+      $('loginBtn').disabled = true;
+      $('loginErr').classList.add('hidden');
+      API.call('login', { login: $('loginInput').value, password: $('passInput').value }).then(function (res) {
+        try { localStorage.setItem('bt_host_token', res.token); } catch (e2) {}
+        $('passInput').value = '';
+        route();
+      }).catch(function (err) {
+        $('loginErr').textContent = err.message;
+        $('loginErr').classList.remove('hidden');
+      }).then(function () { $('loginBtn').disabled = false; });
     });
 
-    // host.html?s=КОД — вернуться к уже созданной сессии
-    var params = new URLSearchParams(location.search);
-    var fromUrl = params.get('s');
-    var keyFromUrl = (params.get('k') || '').replace(/[^a-f0-9]/gi, '').slice(0, 64);
-    if (fromUrl) {
-      var clean = fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-      if (clean.length === 6) {
-        API.ready().then(function () {
-          showLive({ code: clean, title: '', stage: '', testId: '', hostKey: keyFromUrl });
-        });
-      }
-    }
+    $('logoutBtn').addEventListener('click', toLogin);
+    $('toNew').addEventListener('click', function () { screen('screenNew'); $('titleInput').focus(); });
+    Array.prototype.forEach.call(document.querySelectorAll('.back-list'), function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); toList(); });
+    });
+
+    API.ready().then(route);
+  }
+
+  /* Куда попасть: без входа — на вход; host.html?s=КОД — сразу в сессию; иначе список. */
+  function route() {
+    API.call('checkToken', { token: API.token() }).then(function (res) {
+      if (!res.ok) return toLogin();
+      var fromUrl = (new URLSearchParams(location.search).get('s') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      if (fromUrl.length === 6) showLive({ code: fromUrl, title: '', stage: '', testId: '' });
+      else toList();
+    }).catch(toLogin);
   }
 
   document.addEventListener('DOMContentLoaded', init);

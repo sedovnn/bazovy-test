@@ -2,19 +2,27 @@
 
      POST /api                  — то же, что веб-приложение Apps Script (doPost)
      GET  /api                  — проверка, что сервер жив
-     GET  /admin/export.csv?key — все ответы одной таблицей для Excel (ключ ADMIN_KEY)
+     GET  /admin/export.csv?key — все ответы одной таблицей для Excel (ключ ADMIN_KEY
+                                  или вход ведущего: ?token=)
+
+   Кабинет ведущего: один логин и пароль (HOST_LOGIN, HOST_PASSWORD_HASH).
+   Вход — действие login, в ответ токен на 30 дней. Действия ведущего без
+   токена не выполняются; с токеном сервер кладёт в запрос свой HOST_SECRET,
+   по нему бэкенд (Code.gs, hostAllowed) пускает к данным группы.
 
    Статику (index.html, host.html, css, js, data, assets) отдаёт Caddy;
    для проверки на своей машине её отдаёт и этот сервер, если задан STATIC_DIR.
 
    Настройки — из окружения (на сервере: /etc/bazovy-test.env):
-     PORT, DB_PATH, JUDGE_URL, JUDGE_SECRET, ADMIN_KEY, WORKERS, STATIC_DIR */
+     PORT, DB_PATH, JUDGE_URL, JUDGE_SECRET, ADMIN_KEY, WORKERS, STATIC_DIR,
+     HOST_LOGIN, HOST_PASSWORD_HASH (соль:хеш scrypt), HOST_SECRET */
 
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
+const crypto = require('node:crypto');
 const sheets = require('./sheets');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -25,7 +33,48 @@ const env = {
   JUDGE_SECRET: process.env.JUDGE_SECRET || '',
   ADMIN_KEY: process.env.ADMIN_KEY || '',
   STATIC_DIR: process.env.STATIC_DIR ? path.resolve(process.env.STATIC_DIR) : '',
+  HOST_LOGIN: process.env.HOST_LOGIN || '',
+  HOST_PASSWORD_HASH: process.env.HOST_PASSWORD_HASH || '',
+  HOST_SECRET: process.env.HOST_SECRET || '',
 };
+
+/* ---------- вход ведущего ---------- */
+
+// действия, которые видят данные группы или создают сессии, — только после входа
+const HOST_ACTIONS = ['listSessions', 'createSession', 'summary', 'compare', 'quotes',
+                      'candidates', 'candidateDetail', 'rejudge'];
+const TOKEN_DAYS = 30;
+
+function sign(s) { return crypto.createHmac('sha256', env.HOST_SECRET).update(s).digest('hex'); }
+
+function makeToken() {
+  const exp = String(Date.now() + TOKEN_DAYS * 864e5);
+  return exp + '.' + sign(exp);
+}
+
+function tokenValid(t) {
+  if (!env.HOST_SECRET || !t) return false;
+  const [exp, mac] = String(t).split('.');
+  if (!exp || !mac || Number(exp) < Date.now()) return false;
+  const good = sign(exp);
+  return mac.length === good.length && crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(good));
+}
+
+function passwordOk(login, password) {
+  if (!env.HOST_LOGIN || !env.HOST_PASSWORD_HASH) return false;
+  const [salt, hash] = env.HOST_PASSWORD_HASH.split(':');
+  const got = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
+  return String(login || '').trim().toLowerCase() === env.HOST_LOGIN.toLowerCase() &&
+         crypto.timingSafeEqual(Buffer.from(got), Buffer.from(hash));
+}
+
+// перебор пароля: не больше 8 неудачных попыток за 15 минут с одного адреса
+const fails = new Map();
+function tooMany(ip) {
+  const now = Date.now(), list = (fails.get(ip) || []).filter(t => now - t < 15 * 60e3);
+  fails.set(ip, list);
+  return list.length >= 8;
+}
 const WORKERS = Number(process.env.WORKERS || 6);
 
 /* ---------- рабочие ---------- */
@@ -119,10 +168,31 @@ http.createServer((req, res) => {
     });
     req.on('end', () => {
       if (res.writableEnded) return;
-      run(body).then(out => {
+      const send = obj => {
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(out);
-      });
+        res.end(typeof obj === 'string' ? obj : JSON.stringify(obj));
+      };
+      let p;
+      try { p = JSON.parse(body); } catch (e) { return send({ ok: false, error: 'Не разобрал тело запроса' }); }
+      delete p.hostAuth;   // пропуск ведущего ставит только сервер
+
+      if (p.action === 'login') {
+        const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+        if (tooMany(ip)) return send({ ok: false, error: 'Слишком много попыток. Подождите 15 минут.' });
+        if (!passwordOk(p.login, p.password)) {
+          fails.get(ip).push(Date.now());
+          return send({ ok: false, error: 'Неверный логин или пароль' });
+        }
+        return send({ ok: true, token: makeToken() });
+      }
+      if (p.action === 'checkToken') return send({ ok: tokenValid(p.token) });
+
+      if (HOST_ACTIONS.indexOf(p.action) >= 0) {
+        if (!tokenValid(p.token)) return send({ ok: false, error: 'need_login' });
+        p.hostAuth = env.HOST_SECRET;
+      }
+      delete p.token;
+      run(JSON.stringify(p)).then(send);
     });
     return;
   }
@@ -133,7 +203,8 @@ http.createServer((req, res) => {
   }
 
   if (url.pathname === '/admin/export.csv' || url.pathname === '/admin/sessions.csv') {
-    if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) {
+    const byKey = env.ADMIN_KEY && url.searchParams.get('key') === env.ADMIN_KEY;
+    if (!byKey && !tokenValid(url.searchParams.get('token'))) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('нужен ключ');
     }

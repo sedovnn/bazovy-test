@@ -98,3 +98,11 @@ h1, h2, h3, .screen-h, .op-h, .stat b, .code-big, .question, .skill-name, .news-
 .cand-name { font-weight: 500; min-width: 12em; }
 .cand-list .btn { margin-left: auto; }
 #hostLinkBox { padding: 16px 18px; }
+
+/* Кабинет: список сессий — строка целиком открывает сессию */
+.sess-table tbody tr { cursor: pointer; }
+.sess-table tbody tr:hover, .sess-table tbody tr:focus { background: var(--gray5); outline: none; }
+.sess-table tbody tr.is-old { color: var(--muted); }
+.back-list { color: var(--muted); text-decoration: none; }
+.back-list:hover { color: var(--ink); }
+.op-table th { text-transform: none; letter-spacing: 0; }

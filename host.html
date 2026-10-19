@@ -17,8 +17,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261016-2037" />
-<link rel="stylesheet" href="css/brand-host.css?v=20261016-2037" />
+<link rel="stylesheet" href="css/app.css?v=20261019-0927" />
+<link rel="stylesheet" href="css/brand-host.css?v=20261019-0927" />
 </head>
 <body class="op">
 
@@ -31,8 +31,45 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 <main class="frame" style="padding-top:32px;padding-bottom:64px">
 
+<!-- вход в кабинет -->
+<section id="screenLogin" class="hidden">
+  <p class="kicker">Кабинет ведущего</p>
+  <h1 class="op-h">Вход</h1>
+  <form id="loginForm" style="max-width:360px" autocomplete="on">
+    <div class="op-row">
+      <label class="op-label" for="loginInput">Логин</label>
+      <input class="op-field" id="loginInput" autocomplete="username" autocapitalize="none" spellcheck="false" />
+    </div>
+    <div class="op-row">
+      <label class="op-label" for="passInput">Пароль</label>
+      <input class="op-field" id="passInput" type="password" autocomplete="current-password" />
+    </div>
+    <button class="btn btn-primary" id="loginBtn" type="submit">Войти</button>
+  </form>
+  <p class="err hidden" id="loginErr" role="alert"></p>
+</section>
+
+<!-- все сессии -->
+<section id="screenList" class="hidden">
+  <p class="kicker">Кабинет ведущего</p>
+  <h1 class="op-h">Сессии</h1>
+  <p style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 24px">
+    <button class="btn btn-primary btn-sm" id="toNew" type="button">Новая сессия</button>
+    <a class="btn btn-ghost btn-sm" id="exportAll" href="#">Скачать все ответы (Excel)</a>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Выйти</button>
+  </p>
+  <div class="scroll-x">
+    <table class="op-table sess-table" id="sessTable">
+      <thead><tr><th>Создана</th><th>Группа</th><th>Код</th><th>Этап</th><th>Кейс</th><th>Именная</th><th>Прошли</th><th>Последний ответ</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="util" id="sessNote" style="margin-top:12px"></p>
+</section>
+
 <!-- создание сессии -->
-<section id="screenNew">
+<section id="screenNew" class="hidden">
+  <p style="margin:0 0 20px"><a href="#" class="back-list">← Все сессии</a></p>
   <p class="kicker">Новая сессия</p>
   <h1 class="op-h">Создать сессию</h1>
 
@@ -67,14 +104,12 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
   <p class="err hidden" id="newErr" role="alert"></p>
 
-  <p class="util" style="margin-top:32px">
-    Уже есть сессия — откройте <code>host.html?s=КОД</code> или
-    <a href="#" id="openExisting">введите код</a>.
-  </p>
+
 </section>
 
 <!-- сессия создана + агрегат -->
 <section id="screenLive" class="hidden">
+  <p style="margin:0 0 20px"><a href="#" class="back-list">← Все сессии</a></p>
   <div class="cols cols-side">
 
     <div>
@@ -89,15 +124,6 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
         <button class="btn btn-ghost btn-sm" id="copyLink" type="button">Скопировать ссылку</button>
       </p>
 
-      <!-- Ссылка ведущего с ключом: по ней открывается список кандидатов.
-           Участникам её не показывать — у них только код и QR. -->
-      <div class="info hidden" id="hostLinkBox" style="margin-top:28px">
-        <p class="kicker" style="margin-bottom:6px">Ваша ссылка ведущего</p>
-        <p class="util" style="margin:0 0 10px">Сохраните её: по ней вы вернётесь к сессии и откроете
-          результаты кандидатов. Участникам не отправляйте — им хватает кода.</p>
-        <p class="util" style="margin:0 0 12px;word-break:break-all" id="hostLink"></p>
-        <button class="btn btn-ghost btn-sm" id="copyHostLink" type="button">Скопировать ссылку ведущего</button>
-      </div>
     </div>
 
     <div>
@@ -192,9 +218,9 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 </main>
 
-<script src="js/config.js?v=20261016-2037"></script>
-<script src="js/qr.js?v=20261016-2037"></script>
-<script src="js/api.js?v=20261016-2037"></script>
-<script src="js/host.js?v=20261016-2037"></script>
+<script src="js/config.js?v=20261019-0927"></script>
+<script src="js/qr.js?v=20261019-0927"></script>
+<script src="js/api.js?v=20261019-0927"></script>
+<script src="js/host.js?v=20261019-0927"></script>
 </body>
 </html>

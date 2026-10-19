@@ -379,6 +379,18 @@ console.log('\n9г. «Как звучало бы сильнее» — тольк
   fetchMode = 'ok';
 }
 
+console.log('\n9д. Кабинет ведущего: список сессий — только с пропуском сервера');
+props.HOST_SECRET = 'пропуск-сервера';
+check('без пропуска список не отдаётся', post({ action: 'listSessions' }).ok === false);
+check('с чужим пропуском не отдаётся', post({ action: 'listSessions', hostAuth: 'чужой' }).ok === false);
+const спис = post({ action: 'listSessions', hostAuth: 'пропуск-сервера' });
+check('с пропуском — все сессии, свежие сверху, с числом прошедших',
+      спис.ok && спис.sessions.length >= 5 && спис.sessions.some(x => x.code === code && x.count >= 1) &&
+      спис.sessions[0].createdAt >= спис.sessions[спис.sessions.length - 1].createdAt, JSON.stringify(спис).slice(0, 200));
+check('кандидаты по пропуску кабинета, без ключа сессии',
+      post({ action: 'candidates', code, hostAuth: 'пропуск-сервера' }).ok === true);
+delete props.HOST_SECRET;
+
 console.log('\n10. Мелочи');
 check('неизвестное действие отклонено', post({ action: 'чепуха' }).ok === false);
 const версии = JSON.parse(doGet().getContent());

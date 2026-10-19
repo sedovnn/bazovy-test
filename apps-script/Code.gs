@@ -34,8 +34,17 @@ function doPost(e) {
     return json({ ok: false, error: 'Не разобрал тело запроса' });
   }
 
+  /* С 16.10.2026 тест живёт на сервере test.fproof.tech. Здесь, в Apps Script,
+     остались только судья (по секрету) и открытие старых результатов по ссылке:
+     создавать сессии и читать группу через Google больше нельзя. */
+  var inAppsScript = typeof ScriptApp !== 'undefined';   // на сервере и в проверках ScriptApp нет
+  if (inAppsScript && ['judge', 'dump', 'result'].indexOf(payload.action) < 0) {
+    return json({ ok: false, error: 'Тест переехал на https://test.fproof.tech' });
+  }
+
   try {
     switch (payload.action) {
+      case 'listSessions':  return json(listSessions(payload));
       case 'createSession': return json(createSession(payload));
       case 'checkSession':  return json(checkSession(payload));
       case 'submit':        return json(submit(payload));
@@ -732,6 +741,46 @@ function quotes(p) {
   return { ok: true, abilities: out };
 }
 
+/* Доступ ведущего. На сервере вход в кабинет проверяет сам сервер и кладёт
+   в запрос свой секрет HOST_SECRET — снаружи его не подделать. Старые ссылки
+   ведущего с ключом сессии тоже работают. */
+function hostAllowed(p, session) {
+  var secret = PROP.getProperty('HOST_SECRET');
+  if (secret && String(p.hostAuth || '') === secret) return true;
+  return !!(session && session.hostKey && String(p.key || '') === session.hostKey);
+}
+
+/* Все сессии для кабинета ведущего: свежие сверху, с числом прошедших. */
+function listSessions(p) {
+  if (!hostAllowed(p, null)) return { ok: false, error: 'need_login' };
+  var sess = sheet(SHEET_SESSIONS).getDataRange().getValues();
+  var sh = sess[0].map(function (h) { return String(h); });
+  var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
+  var rh = values[0].map(function (h) { return String(h); });
+  var iCode = rh.indexOf('session_code'), iAt = rh.indexOf('submitted_at');
+  var counts = {}, last = {};
+  for (var i = 1; i < values.length; i++) {
+    var c = values[i][iCode];
+    counts[c] = (counts[c] || 0) + 1;
+    var at = String(values[i][iAt] || '');
+    if (!last[c] || at > last[c]) last[c] = at;
+  }
+  function col(row, name) { var k = sh.indexOf(name); return k >= 0 ? row[k] : ''; }
+  var out = [];
+  for (var j = 1; j < sess.length; j++) {
+    var code = String(col(sess[j], 'code'));
+    if (!code) continue;
+    var testId = String(col(sess[j], 'test_id') || '');
+    out.push({ code: code, title: String(col(sess[j], 'title') || ''), stage: String(col(sess[j], 'stage') || ''),
+               testId: testId, current: !!testById(testId),
+               identify: String(col(sess[j], 'identify')) === 'да',
+               createdAt: String(col(sess[j], 'created_at') || ''),
+               count: counts[code] || 0, lastAt: last[code] || '' });
+  }
+  out.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+  return { ok: true, sessions: out };
+}
+
 /* Сессия без ключа ведущего: её видит любой, кто знает 6-значный код. */
 function publicSession(s) {
   if (!s) return s;
@@ -745,8 +794,7 @@ function candidates(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
-  var key = String(p.key || '');
-  if (!session.hostKey || key !== session.hostKey) return { ok: false, error: 'no_key' };
+  if (!hostAllowed(p, session)) return { ok: false, error: 'no_key' };
   if (!session.identify) return { ok: true, identify: false, items: [] };
 
   var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
@@ -772,7 +820,7 @@ function candidateDetail(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
-  if (!session.hostKey || String(p.key || '') !== session.hostKey) return { ok: false, error: 'no_key' };
+  if (!hostAllowed(p, session)) return { ok: false, error: 'no_key' };
   if (!session.identify) return { ok: false, error: 'Разбор есть только у именной сессии' };
 
   var values = sheet(SHEET_RESPONSES).getDataRange().getValues();

@@ -59,8 +59,14 @@ function callBackend(action, payload) {
 var API = {
   isMock: function () { return !API_URL; },
 
+  /* Токен входа ведущего живёт в этом браузере; участникам его нет. */
+  token: function () { try { return localStorage.getItem('bt_host_token') || ''; } catch (e) { return ''; } },
+
   call: function (action, payload) {
-    return API_URL ? callBackend(action, payload) : MOCK.call(action, payload);
+    var p = Object.assign({}, payload || {});
+    var t = API.token();
+    if (t && !p.token) p.token = t;
+    return API_URL ? callBackend(action, p) : MOCK.call(action, p);
   },
 
   createSession: function (p) { return API.call('createSession', p); },
@@ -227,6 +233,17 @@ var MOCK = {
                    summary: MOCK.summary(rows2, sess.testId) });
       });
       return MOCK.delay(300, { ok: true, title: title, sessions: out });
+    }
+
+    if (action === 'login') return MOCK.delay(200, { ok: true, token: 'мок' });
+    if (action === 'checkToken') return MOCK.delay(50, { ok: true });
+    if (action === 'listSessions') {
+      var list = Object.keys(db.sessions).map(function (c) {
+        var s0 = db.sessions[c], rs = db.responses.filter(function (r) { return r.session_code === c; });
+        return { code: c, title: s0.title, stage: s0.stage, testId: s0.testId, current: true, identify: !!s0.identify,
+                 createdAt: s0.created_at, count: rs.length, lastAt: rs.length ? rs[rs.length - 1].submitted_at : '' };
+      }).sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+      return MOCK.delay(200, { ok: true, sessions: list });
     }
 
     if (action === 'candidates') {
