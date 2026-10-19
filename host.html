@@ -17,8 +17,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261019-0959" />
-<link rel="stylesheet" href="css/brand-host.css?v=20261019-0959" />
+<link rel="stylesheet" href="css/app.css?v=20261019-1032" />
+<link rel="stylesheet" href="css/brand-host.css?v=20261019-1032" />
 </head>
 <body class="op">
 
@@ -186,15 +186,6 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
   </div>
 
-  <!-- Кандидаты именной сессии: имя и результат. Только по ссылке ведущего с ключом. -->
-  <div class="hidden" id="candBox" style="margin-top:48px">
-    <p class="kicker">Именная сессия</p>
-    <h2 class="op-h">Кандидаты</h2>
-    <p class="util" style="margin:0 0 16px" id="candNote">Результат открывается в новой вкладке —
-      тем же экраном, что видел сам кандидат.</p>
-    <ul class="cand-list" id="candList"></ul>
-  </div>
-
   <!-- Комментарии группы для разбора. Список — только ведущему: уровень виден
        ему одному. На экран выводится одна цитата за раз — текст и навык, без
        имени и без уровня — и в именной сессии тоже. -->
@@ -208,10 +199,17 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
     <div id="quotesList"></div>
   </div>
 
-  <p style="margin-top:56px;border-top:1px solid var(--gray3);padding-top:20px">
-    <button class="btn btn-ghost btn-sm" id="deleteBtn" type="button">Удалить сессию</button>
-    <span class="util" style="margin-left:12px">Сессия уйдёт в «Удалённые», вернуть можно оттуда.</span>
-  </p>
+
+  <!-- Кандидаты именной сессии: имя, результат, разбор. Свёрнуто — имена на экране
+       не видны, пока ведущий сам не раскроет (экран могут показывать группе). -->
+  <details class="details hidden" id="candBox" style="margin-top:48px">
+    <summary id="candSum">Кандидаты</summary>
+    <div class="details-body">
+      <p class="util" style="margin:0 0 16px" id="candNote">Результат открывается в новой вкладке —
+        тем же экраном, что видел сам кандидат.</p>
+      <ul class="cand-list" id="candList"></ul>
+    </div>
+  </details>
 
   <div class="quote-full hidden" id="quoteFull" role="dialog" aria-modal="true" aria-labelledby="quoteFullText">
     <p class="kicker" id="quoteFullSkill"></p>
@@ -228,13 +226,17 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
       что на карте участника.</p>
     <div class="cols cols-2" id="compareCols"></div>
   </div>
+  <p style="margin-top:56px;border-top:1px solid var(--gray3);padding-top:20px">
+    <button class="btn btn-ghost btn-sm" id="deleteBtn" type="button">Удалить сессию</button>
+    <span class="util" style="margin-left:12px">Сессия уйдёт в «Удалённые», вернуть можно оттуда.</span>
+  </p>
 </section>
 
 </main>
 
-<script src="js/config.js?v=20261019-0959"></script>
-<script src="js/qr.js?v=20261019-0959"></script>
-<script src="js/api.js?v=20261019-0959"></script>
-<script src="js/host.js?v=20261019-0959"></script>
+<script src="js/config.js?v=20261019-1032"></script>
+<script src="js/qr.js?v=20261019-1032"></script>
+<script src="js/api.js?v=20261019-1032"></script>
+<script src="js/host.js?v=20261019-1032"></script>
 </body>
 </html>

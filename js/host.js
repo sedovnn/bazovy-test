@@ -219,6 +219,7 @@
     API.call('candidates', { code: code }).then(function (res) {
       var ul = $('candList');
       ul.innerHTML = '';
+      $('candSum').textContent = 'Кандидаты — ' + res.items.length;
       if (!res.items.length) {
         ul.innerHTML = '<li class="util">Пока никто не отправил ответы.</li>';
         return;
