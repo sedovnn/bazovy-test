@@ -100,7 +100,9 @@
     tb.innerHTML = '<tr><td colspan="8" class="util">Загружаем…</td></tr>';
     API.call('listSessions', {}).then(function (res) {
       tb.innerHTML = '';
-      var list = res.sessions || [];
+      var all = res.sessions || [];
+      var list = all.filter(function (s) { return !s.deleted; });
+      renderTrash(all.filter(function (s) { return s.deleted; }));
       list.forEach(function (s) {
         var tr = document.createElement('tr');
         tr.className = 'sess-row' + (s.current ? '' : ' is-old');
@@ -123,6 +125,49 @@
       tb.innerHTML = '';
       $('sessNote').textContent = 'Не получилось загрузить список: ' + err.message;
     });
+  }
+
+  function renderTrash(gone) {
+    $('trashBox').classList.toggle('hidden', !gone.length);
+    $('trashSum').textContent = 'Удалённые сессии (' + gone.length + ')';
+    var ul = $('trashList');
+    ul.innerHTML = '';
+    gone.forEach(function (s) {
+      var li = document.createElement('li');
+      var n = document.createElement('span');
+      n.className = 'cand-name';
+      n.textContent = (s.title || '—') + ' · ' + s.code;
+      li.appendChild(n);
+      var w = document.createElement('span');
+      w.className = 'util';
+      w.textContent = fmtDate(s.createdAt) + ' · прошли ' + s.count;
+      li.appendChild(w);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-ghost btn-sm';
+      b.textContent = 'Вернуть';
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        API.call('restoreSession', { code: s.code }).then(toList).catch(function (err) {
+          if (needLogin(err)) return toLogin();
+          b.textContent = 'Не получилось: ' + err.message;
+        });
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
+  function deleteCurrent() {
+    var title = $('liveTitle').textContent || '';
+    if (!confirm('Удалить сессию ' + (title ? '«' + title + '» ' : '') + '(' + code + ')?\n\n' +
+                 'Участники больше не смогут пройти по ней тест, её ответы пропадут из списка и выгрузки. ' +
+                 'Вернуть можно из «Удалённых» внизу списка сессий.')) return;
+    $('deleteBtn').disabled = true;
+    API.call('deleteSession', { code: code }).then(toList).catch(function (err) {
+      if (needLogin(err)) return toLogin();
+      alert('Не получилось удалить: ' + err.message);
+    }).then(function () { $('deleteBtn').disabled = false; });
   }
 
   function showLive(session) {
@@ -629,6 +674,7 @@
     });
 
     $('logoutBtn').addEventListener('click', toLogin);
+    $('deleteBtn').addEventListener('click', deleteCurrent);
     $('toNew').addEventListener('click', function () { screen('screenNew'); $('titleInput').focus(); });
     Array.prototype.forEach.call(document.querySelectorAll('.back-list'), function (a) {
       a.addEventListener('click', function (e) { e.preventDefault(); toList(); });

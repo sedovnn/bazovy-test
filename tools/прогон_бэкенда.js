@@ -389,6 +389,14 @@ check('с пропуском — все сессии, свежие сверху,
       спис.sessions[0].createdAt >= спис.sessions[спис.sessions.length - 1].createdAt, JSON.stringify(спис).slice(0, 200));
 check('кандидаты по пропуску кабинета, без ключа сессии',
       post({ action: 'candidates', code, hostAuth: 'пропуск-сервера' }).ok === true);
+check('удалить без пропуска нельзя', post({ action: 'deleteSession', code: анон.code }).ok === false);
+check('удаление — с пропуском', post({ action: 'deleteSession', code: анон.code, hostAuth: 'пропуск-сервера' }).ok === true);
+check('удалённая сессия — в списке с отметкой',
+      post({ action: 'listSessions', hostAuth: 'пропуск-сервера' }).sessions.find(x => x.code === анон.code).deleted === true);
+check('по коду удалённой сессии участник не входит', post({ action: 'checkSession', code: анон.code }).ok === false);
+check('и не отправит ответы', post({ action: 'submit', code: анон.code, orderings: {}, answers, submissionId: 'после-удаления' }).ok === false);
+check('вернуть — с пропуском', post({ action: 'restoreSession', code: анон.code, hostAuth: 'пропуск-сервера' }).ok === true &&
+      post({ action: 'checkSession', code: анон.code }).ok === true);
 delete props.HOST_SECRET;
 
 console.log('\n10. Мелочи');

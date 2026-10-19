@@ -42,7 +42,7 @@ const env = {
 
 // действия, которые видят данные группы или создают сессии, — только после входа
 const HOST_ACTIONS = ['listSessions', 'createSession', 'summary', 'compare', 'quotes',
-                      'candidates', 'candidateDetail', 'rejudge'];
+                      'candidates', 'candidateDetail', 'rejudge', 'deleteSession', 'restoreSession'];
 const TOKEN_DAYS = 30;
 
 function sign(s) { return crypto.createHmac('sha256', env.HOST_SECRET).update(s).digest('hex'); }
@@ -130,7 +130,15 @@ function csv(rows) {
 let exportStore = null;
 function exportCsv(which) {
   if (!exportStore) exportStore = sheets.open(env.DB_PATH);
-  const rows = exportStore.rowsOf(which);
+  // удалённые сессии и их ответы в выгрузку не идут
+  const sess = exportStore.rowsOf('sessions');
+  const sh = sess[0] || [], iDel = sh.indexOf('deleted_at'), iCode = sh.indexOf('code');
+  const gone = new Set(iDel < 0 ? [] : sess.slice(1).filter(r => r[iDel]).map(r => r[iCode]));
+  let rows = exportStore.rowsOf(which);
+  if (gone.size && rows.length) {
+    const col = rows[0].indexOf(which === 'sessions' ? 'code' : 'session_code');
+    rows = [rows[0]].concat(rows.slice(1).filter(r => !gone.has(r[col])));
+  }
   const w = exportStore.width(rows);
   return csv(rows.map(r => exportStore.pad(r, w)));
 }

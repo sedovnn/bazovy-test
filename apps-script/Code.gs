@@ -45,6 +45,8 @@ function doPost(e) {
   try {
     switch (payload.action) {
       case 'listSessions':  return json(listSessions(payload));
+      case 'deleteSession': return json(markDeleted(payload, true));
+      case 'restoreSession': return json(markDeleted(payload, false));
       case 'createSession': return json(createSession(payload));
       case 'checkSession':  return json(checkSession(payload));
       case 'submit':        return json(submit(payload));
@@ -281,7 +283,7 @@ function findSession(code) {
     }
     return { code: code, title: col('title'), stage: col('stage'),
              testId: String(col('test_id') || ''), identify: String(col('identify')) === 'да',
-             hostKey: String(col('host_key') || '') };
+             hostKey: String(col('host_key') || ''), deleted: !!col('deleted_at') };
   }
   return null;
 }
@@ -289,7 +291,7 @@ function findSession(code) {
 function checkSession(p) {
   var code = String(p.code || '').toUpperCase();
   var s = findSession(code);
-  if (!s) return { ok: false, error: 'no_session' };
+  if (!s || s.deleted) return { ok: false, error: 'no_session' };
   // Тест сессии мог смениться новой версией: тогда тексты и метки другие,
   // и пройти его уже нельзя — говорим прямо, а не падаем на загрузке.
   if (!testById(s.testId)) {
@@ -303,7 +305,7 @@ function checkSession(p) {
 function submit(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
-  if (!session) return { ok: false, error: 'no_session' };
+  if (!session || session.deleted) return { ok: false, error: 'no_session' };
 
   var test = testById(session.testId);
   if (!test) return { ok: false, error: 'В сессии не указан тест' };
@@ -774,11 +776,31 @@ function listSessions(p) {
     out.push({ code: code, title: String(col(sess[j], 'title') || ''), stage: String(col(sess[j], 'stage') || ''),
                testId: testId, current: !!testById(testId),
                identify: String(col(sess[j], 'identify')) === 'да',
+               deleted: !!col(sess[j], 'deleted_at'),
                createdAt: String(col(sess[j], 'created_at') || ''),
                count: counts[code] || 0, lastAt: last[code] || '' });
   }
   out.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
   return { ok: true, sessions: out };
+}
+
+/* Удаление сессии — обратимое: ставится отметка, сессия уходит в «Удалённые»,
+   участники по коду больше не входят, ответы не попадают в выгрузку.
+   Ответы физически не стираются: удаление можно отменить. */
+function markDeleted(p, on) {
+  if (!hostAllowed(p, null)) return { ok: false, error: 'need_login' };
+  var code = String(p.code || '').toUpperCase();
+  var sh = sheet(SHEET_SESSIONS);
+  var values = sh.getDataRange().getValues();
+  var head = values[0].map(function (h) { return String(h); });
+  var iCode = head.indexOf('code');
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][iCode] !== code) continue;
+    var done = false;
+    withLock(function () { set(sh, i + 1, head, 'deleted_at', on ? new Date().toISOString() : ''); done = true; });
+    return done ? { ok: true, code: code, deleted: on } : { ok: false, error: 'Не удалось записать' };
+  }
+  return { ok: false, error: 'no_session' };
 }
 
 /* Сессия без ключа ведущего: её видит любой, кто знает 6-значный код. */

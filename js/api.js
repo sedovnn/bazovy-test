@@ -237,10 +237,16 @@ var MOCK = {
 
     if (action === 'login') return MOCK.delay(200, { ok: true, token: 'мок' });
     if (action === 'checkToken') return MOCK.delay(50, { ok: true });
+    if (action === 'deleteSession' || action === 'restoreSession') {
+      if (db.sessions[p.code]) db.sessions[p.code].deleted = action === 'deleteSession';
+      MOCK.save(db);
+      return MOCK.delay(150, { ok: true });
+    }
     if (action === 'listSessions') {
       var list = Object.keys(db.sessions).map(function (c) {
         var s0 = db.sessions[c], rs = db.responses.filter(function (r) { return r.session_code === c; });
         return { code: c, title: s0.title, stage: s0.stage, testId: s0.testId, current: true, identify: !!s0.identify,
+                 deleted: !!s0.deleted,
                  createdAt: s0.created_at, count: rs.length, lastAt: rs.length ? rs[rs.length - 1].submitted_at : '' };
       }).sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
       return MOCK.delay(200, { ok: true, sessions: list });
