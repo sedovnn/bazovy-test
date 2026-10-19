@@ -153,23 +153,23 @@
           b.textContent = 'Не получилось: ' + err.message;
         });
       });
-      li.appendChild(b);
+      var acts = document.createElement('span');
+      acts.className = 'cand-acts';
+      acts.appendChild(b);
+      li.appendChild(acts);
       var x = document.createElement('button');
       x.type = 'button';
       x.className = 'btn btn-ghost btn-sm btn-danger';
       x.textContent = 'Удалить насовсем';
       x.addEventListener('click', function () {
-        var typed = prompt('Сессия «' + (s.title || '—') + '» и все её ответы (' + s.count + ') будут стёрты без возможности вернуть.\n\n' +
-                           'Чтобы подтвердить, введите код сессии: ' + s.code);
-        if (typed === null) return;
-        if (typed.trim().toUpperCase() !== s.code) { alert('Код не совпал — ничего не удалено.'); return; }
+        if (!confirm('Стереть сессию «' + (s.title || '—') + '» (' + s.code + ') и все её ответы (' + s.count + ')? Вернуть будет нельзя.')) return;
         x.disabled = true;
         API.call('purgeSession', { code: s.code }).then(toList).catch(function (err) {
           if (needLogin(err)) return toLogin();
           x.textContent = 'Не получилось: ' + err.message;
         });
       });
-      li.appendChild(x);
+      acts.appendChild(x);
       ul.appendChild(li);
     });
   }
@@ -242,13 +242,16 @@
         a.target = '_blank';
         a.rel = 'noopener';
         a.textContent = 'Открыть результат';
-        li.appendChild(a);
+        var acts = document.createElement('span');
+        acts.className = 'cand-acts';
+        acts.appendChild(a);
+        li.appendChild(acts);
         var dl = document.createElement('button');
         dl.type = 'button';
         dl.className = 'btn btn-ghost btn-sm';
         dl.textContent = 'Скачать разбор';
         dl.addEventListener('click', function () { downloadDetail(it, dl); });
-        li.appendChild(dl);
+        acts.appendChild(dl);
         ul.appendChild(li);
       });
     }).catch(function (err) {

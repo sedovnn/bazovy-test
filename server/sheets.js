@@ -40,7 +40,10 @@ function open(dbPath) {
     insert: db.prepare('INSERT INTO rows (sheet, idx, data) VALUES (?, ?, ?)'),
     update: db.prepare('INSERT OR REPLACE INTO rows (sheet, idx, data) VALUES (?, ?, ?)'),
     del: db.prepare('DELETE FROM rows WHERE sheet = ? AND idx = ?'),
-    shift: db.prepare('UPDATE rows SET idx = idx - 1 WHERE sheet = ? AND idx > ?'),
+    // сдвиг в два шага: за один UPDATE SQLite может переставить строки в любом
+    // порядке и упереться в уникальность номера (так и случилось 19.10)
+    shiftOut: db.prepare('UPDATE rows SET idx = -idx WHERE sheet = ? AND idx > ?'),
+    shiftIn: db.prepare('UPDATE rows SET idx = -idx - 1 WHERE sheet = ? AND idx < 0'),
   };
 
   function rowsOf(name) {
@@ -120,7 +123,7 @@ function open(dbPath) {
       },
       getLastColumn: () => width(rowsOf(name)),
       getLastRow: () => q.count.get(name).n,
-      deleteRow(n) { q.del.run(name, n); q.shift.run(name, n); },
+      deleteRow(n) { q.del.run(name, n); q.shiftOut.run(name, n); q.shiftIn.run(name); },
       setFrozenRows() {},
     };
     return sheet;
