@@ -47,6 +47,7 @@ function doPost(e) {
       case 'listSessions':  return json(listSessions(payload));
       case 'deleteSession': return json(markDeleted(payload, true));
       case 'restoreSession': return json(markDeleted(payload, false));
+      case 'purgeSession':  return json(purgeSession(payload));
       case 'createSession': return json(createSession(payload));
       case 'checkSession':  return json(checkSession(payload));
       case 'submit':        return json(submit(payload));
@@ -801,6 +802,30 @@ function markDeleted(p, on) {
     return done ? { ok: true, code: code, deleted: on } : { ok: false, error: 'Не удалось записать' };
   }
   return { ok: false, error: 'no_session' };
+}
+
+/* Окончательное удаление — только для сессии, которая уже в «Удалённых»:
+   стираются строка сессии и все ответы по ней. Отменить нельзя. */
+function purgeSession(p) {
+  if (!hostAllowed(p, null)) return { ok: false, error: 'need_login' };
+  var code = String(p.code || '').toUpperCase();
+  var session = findSession(code);
+  if (!session) return { ok: false, error: 'no_session' };
+  if (!session.deleted) return { ok: false, error: 'Сначала удалите сессию — насовсем стираются только удалённые' };
+  var removed = 0;
+  withLock(function () {
+    var rs = sheet(SHEET_RESPONSES), rv = rs.getDataRange().getValues();
+    var iCode = rv[0].map(String).indexOf('session_code');
+    for (var i = rv.length - 1; i >= 1; i--) {
+      if (rv[i][iCode] === code) { rs.deleteRow(i + 1); removed++; }
+    }
+    var ss = sheet(SHEET_SESSIONS), sv = ss.getDataRange().getValues();
+    var sCode = sv[0].map(String).indexOf('code');
+    for (var j = sv.length - 1; j >= 1; j--) {
+      if (sv[j][sCode] === code) ss.deleteRow(j + 1);
+    }
+  });
+  return { ok: true, code: code, removed: removed };
 }
 
 /* Сессия без ключа ведущего: её видит любой, кто знает 6-значный код. */

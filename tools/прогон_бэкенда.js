@@ -397,6 +397,18 @@ check('по коду удалённой сессии участник не вх�
 check('и не отправит ответы', post({ action: 'submit', code: анон.code, orderings: {}, answers, submissionId: 'после-удаления' }).ok === false);
 check('вернуть — с пропуском', post({ action: 'restoreSession', code: анон.code, hostAuth: 'пропуск-сервера' }).ok === true &&
       post({ action: 'checkSession', code: анон.code }).ok === true);
+{
+  const жив = post({ action: 'listSessions', hostAuth: 'пропуск-сервера' }).sessions.length;
+  check('насовсем нельзя, пока сессия не в «Удалённых»',
+        post({ action: 'purgeSession', code: анон.code, hostAuth: 'пропуск-сервера' }).ok === false);
+  check('насовсем без пропуска нельзя', post({ action: 'purgeSession', code: анон.code }).ok === false);
+  post({ action: 'deleteSession', code: анон.code, hostAuth: 'пропуск-сервера' });
+  const стёрто = post({ action: 'purgeSession', code: анон.code, hostAuth: 'пропуск-сервера' });
+  check('насовсем: сессия и её ответы стёрты', стёрто.ok && стёрто.removed >= 1 &&
+        post({ action: 'listSessions', hostAuth: 'пропуск-сервера' }).sessions.length === жив - 1 &&
+        !sheets.responses._rows.some(r => r.indexOf(анон.code) >= 0), JSON.stringify(стёрто));
+  check('чужие сессии не задеты', post({ action: 'checkSession', code }).ok === true);
+}
 delete props.HOST_SECRET;
 
 console.log('\n10. Мелочи');

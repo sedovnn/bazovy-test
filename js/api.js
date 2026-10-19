@@ -237,6 +237,12 @@ var MOCK = {
 
     if (action === 'login') return MOCK.delay(200, { ok: true, token: 'мок' });
     if (action === 'checkToken') return MOCK.delay(50, { ok: true });
+    if (action === 'purgeSession') {
+      delete db.sessions[p.code];
+      db.responses = db.responses.filter(function (r) { return r.session_code !== p.code; });
+      MOCK.save(db);
+      return MOCK.delay(150, { ok: true });
+    }
     if (action === 'deleteSession' || action === 'restoreSession') {
       if (db.sessions[p.code]) db.sessions[p.code].deleted = action === 'deleteSession';
       MOCK.save(db);

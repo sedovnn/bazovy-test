@@ -154,6 +154,22 @@
         });
       });
       li.appendChild(b);
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'btn btn-ghost btn-sm btn-danger';
+      x.textContent = 'Удалить насовсем';
+      x.addEventListener('click', function () {
+        var typed = prompt('Сессия «' + (s.title || '—') + '» и все её ответы (' + s.count + ') будут стёрты без возможности вернуть.\n\n' +
+                           'Чтобы подтвердить, введите код сессии: ' + s.code);
+        if (typed === null) return;
+        if (typed.trim().toUpperCase() !== s.code) { alert('Код не совпал — ничего не удалено.'); return; }
+        x.disabled = true;
+        API.call('purgeSession', { code: s.code }).then(toList).catch(function (err) {
+          if (needLogin(err)) return toLogin();
+          x.textContent = 'Не получилось: ' + err.message;
+        });
+      });
+      li.appendChild(x);
       ul.appendChild(li);
     });
   }

@@ -42,7 +42,8 @@ const env = {
 
 // действия, которые видят данные группы или создают сессии, — только после входа
 const HOST_ACTIONS = ['listSessions', 'createSession', 'summary', 'compare', 'quotes',
-                      'candidates', 'candidateDetail', 'rejudge', 'deleteSession', 'restoreSession'];
+                      'candidates', 'candidateDetail', 'rejudge', 'deleteSession', 'restoreSession',
+                      'purgeSession'];
 const TOKEN_DAYS = 30;
 
 function sign(s) { return crypto.createHmac('sha256', env.HOST_SECRET).update(s).digest('hex'); }

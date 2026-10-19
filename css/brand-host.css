@@ -106,3 +106,5 @@ h1, h2, h3, .screen-h, .op-h, .stat b, .code-big, .question, .skill-name, .news-
 .back-list { color: var(--muted); text-decoration: none; }
 .back-list:hover { color: var(--ink); }
 .op-table th { text-transform: none; letter-spacing: 0; }
+
+.btn-danger { background: transparent !important; border-color: var(--verm) !important; color: var(--accent-ink) !important; }
