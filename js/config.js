@@ -9,7 +9,7 @@ var CONFIG = {
       "id": "intel-1.0",
       "name": "Intel",
       "file": "data/case_intel.json",
-      "v": "dc35d6f3",
+      "v": "9d69737b",
       "free": [
         {
           "id": "q1",
@@ -36,7 +36,7 @@ var CONFIG = {
       "id": "nike-1.0",
       "name": "Nike",
       "file": "data/case_nike.json",
-      "v": "8a933973",
+      "v": "9dbf72ce",
       "free": [
         {
           "id": "q1",
@@ -63,7 +63,7 @@ var CONFIG = {
       "id": "starbucks-1.0",
       "name": "Starbucks",
       "file": "data/case_starbucks.json",
-      "v": "5d341ad6",
+      "v": "9f17557e",
       "free": [
         {
           "id": "q1",
@@ -90,7 +90,7 @@ var CONFIG = {
       "id": "bp-1.0",
       "name": "bp",
       "file": "data/case_bp.json",
-      "v": "c020b2c1",
+      "v": "c479c92d",
       "free": [
         {
           "id": "q1",
@@ -117,7 +117,7 @@ var CONFIG = {
       "id": "stellantis-1.0",
       "name": "Stellantis",
       "file": "data/case_stellantis.json",
-      "v": "8b30ddc2",
+      "v": "9217d62d",
       "free": [
         {
           "id": "q1",
@@ -144,7 +144,7 @@ var CONFIG = {
       "id": "novo-1.0",
       "name": "Novo",
       "file": "data/case_novo.json",
-      "v": "8a054b27",
+      "v": "3ba9e74c",
       "free": [
         {
           "id": "q1",

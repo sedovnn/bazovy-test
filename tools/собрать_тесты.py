@@ -369,6 +369,29 @@ def main():
 
     # ---- ключи ----
     keys = {t['id']: t['key'] for t in tests}
+
+    # Прежние метки. Метка — хеш текста комментария, и правка текста её меняет.
+    # Сохранённые прохождения хранят порядок по старым меткам, а карта и пересчёт
+    # собираются заново по ключу — без старых меток расстановка правленой ветки
+    # обнулилась бы. Поэтому метка, пропавшая из ключа, остаётся в нём со своим
+    # уровнем; список копится в spec/прежние_метки.json.
+    legacy_path = ROOT / 'spec' / 'прежние_метки.json'
+    legacy = json.loads(legacy_path.read_text(encoding='utf-8')) if legacy_path.exists() else {}
+    old_gs = ROOT / 'apps-script' / 'keys.gs'
+    if old_gs.exists():
+        m = re.search(r'var KEYS = (\{.*?\});\s*\n', old_gs.read_text(encoding='utf-8'), re.S)
+        old = json.loads(m.group(1)) if m else {}
+        for tid, sits in old.items():
+            for sid, labels in sits.items():
+                for lab, lv in labels.items():
+                    if lab not in keys.get(tid, {}).get(sid, {}):
+                        legacy.setdefault(tid, {}).setdefault(sid, {})[lab] = lv
+    legacy_path.write_text(json.dumps(legacy, ensure_ascii=False, indent=1), encoding='utf-8')
+    for tid, sits in legacy.items():
+        for sid, labels in sits.items():
+            for lab, lv in labels.items():
+                if tid in keys and sid in keys[tid]:
+                    keys[tid][sid].setdefault(lab, lv)
     key_head = head.replace('*/', '   Ключ: тест → ситуация → метка реплики → её уровень.\n'
                                   '   Метка — хеш текста реплики, порядка в ней нет. */')
     body = ('var KEYS = ' + js(keys) + ';\n\n'
