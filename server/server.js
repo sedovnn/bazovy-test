@@ -36,6 +36,10 @@ const env = {
   HOST_LOGIN: process.env.HOST_LOGIN || '',
   HOST_PASSWORD_HASH: process.env.HOST_PASSWORD_HASH || '',
   HOST_SECRET: process.env.HOST_SECRET || '',
+  PROVIDER: process.env.PROVIDER || '',              // deepseek — судья на сервере
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || '',
+  DEEPSEEK_URL: process.env.DEEPSEEK_URL || '',       // только для проверок на своей машине
+  MODEL: process.env.MODEL || '',
 };
 
 /* ---------- вход ведущего ---------- */
@@ -208,7 +212,8 @@ http.createServer((req, res) => {
 
   if (url.pathname === '/api' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    return res.end(JSON.stringify({ ok: true, service: 'Базовый тест', judge: !!env.JUDGE_URL }));
+    return res.end(JSON.stringify({ ok: true, service: 'Базовый тест',
+      judge: env.PROVIDER === 'deepseek' ? 'deepseek' : (env.JUDGE_URL ? 'apps-script' : false) }));
   }
 
   if (url.pathname === '/admin/export.csv' || url.pathname === '/admin/sessions.csv') {

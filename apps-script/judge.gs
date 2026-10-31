@@ -27,8 +27,18 @@ var ANTHROPIC_VERSION = '2023-06-01';
 var DEFAULT_MODEL = 'claude-sonnet-5';   // как у судьи Искры
 var MAX_TOKENS = 4000;
 
+/* Поставщик модели. С 31.10.2026 на сервере Selectel судья может работать
+   через DeepSeek (доступен из России): PROVIDER=deepseek в настройках сервера.
+   Без настройки — Claude, как было. */
+var DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+var DEEPSEEK_MODEL = 'deepseek-v4-pro';
+
+function judgeProvider() {
+  return String(PROP.getProperty('PROVIDER') || 'anthropic').toLowerCase();
+}
+
 function judgeModel() {
-  return PROP.getProperty('MODEL') || DEFAULT_MODEL;
+  return PROP.getProperty('MODEL') || (judgeProvider() === 'deepseek' ? DEEPSEEK_MODEL : DEFAULT_MODEL);
 }
 
 function judgePrompt(testId) {
@@ -46,17 +56,18 @@ function judgeAnswers(testId, answers) {
              error: 'Для теста ' + testId + ' нет промпта судьи' };
   }
 
-  var key = PROP.getProperty('ANTHROPIC_API_KEY');
+  var keyName = judgeProvider() === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'ANTHROPIC_API_KEY';
+  var key = PROP.getProperty(keyName);
   if (!key) {
     return { ok: false, judge: null, model: model, promptVersion: prompt.version,
-             error: 'Не задан ANTHROPIC_API_KEY в свойствах скрипта' };
+             error: 'Не задан ' + keyName };
   }
 
   var userText = (answers || []).map(function (a, i) {
     return '<ответ' + (i + 1) + '>\n' + String(a || '') + '\n</ответ' + (i + 1) + '>';
   }).join('\n');
 
-  var first = callAnthropic(key, model, prompt.text, userText);
+  var first = callModel(key, model, prompt.text, userText);
   if (!first.ok) {
     return { ok: false, judge: null, error: first.error, model: model, promptVersion: prompt.version };
   }
@@ -65,7 +76,7 @@ function judgeAnswers(testId, answers) {
   if (parsed) return checked(parsed, key, model, prompt, userText);
 
   // один повтор — как предписано спекой
-  var second = callAnthropic(key, model, prompt.text, userText + '\n\nОтветь только JSON.');
+  var second = callModel(key, model, prompt.text, userText + '\n\nОтветь только JSON.');
   if (!second.ok) {
     return { ok: false, judge: null, error: second.error, model: model, promptVersion: prompt.version };
   }
@@ -86,7 +97,7 @@ function checked(parsed, key, model, prompt, userText) {
   var ctx = { answers: userText, caseText: String(prompt.text || '').split('### Термины методологии')[0] };
   var problems = textProblemsAll(parsed, ctx);
   if (problems.length) {
-    var again = callAnthropic(key, model, prompt.text, userText +
+    var again = callModel(key, model, prompt.text, userText +
       '\n\nВ прошлом ответе тексты для человека нарушали правила языка: ' + problems.join('; ') +
       '. Соблюдай правила полей has, next и stronger. Ответь только JSON.');
     var second = again.ok ? parseVerdict(again.text) : null;
@@ -186,6 +197,45 @@ function finishTexts(verdict, ctx) {
     v.why = v.takeaway;
     v.textcheck = notes.join('\n');
   });
+}
+
+function callModel(key, model, system, user) {
+  return judgeProvider() === 'deepseek' ? callDeepSeek(key, model, system, user)
+                                        : callAnthropic(key, model, system, user);
+}
+
+/* DeepSeek: формат OpenAI. Рассуждение выключено, как у Claude; ответ — JSON.
+   Кэш у DeepSeek автоматический: одинаковое начало запроса (промпт кейса)
+   во второй раз стоит в десятки раз дешевле. */
+function callDeepSeek(key, model, system, user) {
+  var payload = {
+    model: model,
+    max_tokens: MAX_TOKENS * 2,          // запас: русский текст у DeepSeek длиннее в токенах
+    thinking: { type: 'disabled' },
+    response_format: { type: 'json_object' },
+    messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
+  };
+  var res;
+  try {
+    res = UrlFetchApp.fetch(PROP.getProperty('DEEPSEEK_URL') || DEEPSEEK_URL, {
+      method: 'post', contentType: 'application/json',
+      headers: { 'Authorization': 'Bearer ' + key },
+      payload: JSON.stringify(payload), muteHttpExceptions: true
+    });
+  } catch (e) {
+    return { ok: false, error: 'Сеть: ' + String(e && e.message || e) };
+  }
+  var code = res.getResponseCode(), body = res.getContentText();
+  if (code !== 200) {
+    var msg = body;
+    try { msg = JSON.parse(body).error.message; } catch (e) {}
+    return { ok: false, error: 'API ' + code + ': ' + String(msg).slice(0, 300) };
+  }
+  var data;
+  try { data = JSON.parse(body); } catch (e) { return { ok: false, error: 'Ответ API не разобрался как JSON' }; }
+  var text = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
+  if (!text) return { ok: false, error: 'Пустой ответ судьи' };
+  return { ok: true, text: text };
 }
 
 function callAnthropic(key, model, system, user) {
