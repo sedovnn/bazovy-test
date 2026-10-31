@@ -888,7 +888,10 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 
 .prow + .prow { border-top: 1px solid var(--hairline); }
 
+.prow-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .prow-name { font-size: var(--fs-read); font-weight: 700; }
+.prow-score { font-size: var(--fs-util); color: var(--muted); white-space: nowrap; }
+.prow-score b { font-size: var(--fs-read); color: var(--ink); }
 
 /* Трек серый, заливка акцентом — словарь платформы. Длина и есть весь ответ. */
 .ptrack {

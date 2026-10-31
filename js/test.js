@@ -629,7 +629,7 @@
       note.textContent = 'Полосы для неё не строятся: в той версии была другая шкала. Ниже — что было видно по вашим ответам.';
     } else {
       rows.forEach(function (r) { box.appendChild(profileRow(r)); });
-      note.textContent = 'Шкала одна на все навыки: чем длиннее полоса, тем увереннее навык проявился.';
+      note.textContent = 'Оценка от 1 до 10, шкала одна на все навыки: чем выше, тем увереннее навык проявился.';
     }
     box.appendChild(note);
 
@@ -649,36 +649,49 @@
   /* Две фразы вместо объяснения шкалы: их читают, объяснение — нет.
      Края берутся по той же общей шкале, что и полосы. */
   function leadText(rows) {
+    // по тем же числам из 10, что видны у полос: иначе фраза называет
+    // «выше всего» один навык, а рядом у двух стоит одинаковое число
     var sorted = rows.slice().sort(function (a, b) { return b.value - a.value; });
-    var top = sorted[0], bottom = sorted[sorted.length - 1];
+    var max = outOfTen(sorted[0].value), min = outOfTen(sorted[sorted.length - 1].value);
 
-    if (top.value - bottom.value < 0.15) {
+    if (max - min < 2) {
       return 'Все пять навыков проявились примерно одинаково.';
     }
 
-    var high = sorted.filter(function (r) { return r.value >= top.value - 0.01; });
-    var low = sorted.filter(function (r) { return r.value <= bottom.value + 0.01; });
+    var high = sorted.filter(function (r) { return outOfTen(r.value) === max; });
+    var low = sorted.filter(function (r) { return outOfTen(r.value) === min; });
 
     return 'Выше всего — ' + list(high.map(function (r) { return lower(r.name); })) + '. ' +
            'Ниже всего — ' + list(low.map(function (r) { return lower(r.name); })) + '.';
   }
 
+  function outOfTen(value) { return Math.min(10, Math.max(1, Math.round(1 + value * 9))); }
+
   function profileRow(r) {
     var row = document.createElement('div');
     row.className = 'prow';
 
+    // Оценка из 10 — опора для взгляда: одна полоса без числа читалась как
+    // «непонятно, много это или мало». Считаем от 1: нижняя ступень у судьи
+    // тоже 1, а «0 из 10» звучит как «ничего не показал».
+    var score = outOfTen(r.value);
+    var head = document.createElement('span');
+    head.className = 'prow-head';
     var name = document.createElement('span');
     name.className = 'prow-name';
     name.textContent = r.name;
-    row.appendChild(name);
+    var num = document.createElement('span');
+    num.className = 'prow-score';
+    num.innerHTML = '<b>' + score + '</b> из 10';
+    head.appendChild(name);
+    head.appendChild(num);
+    row.appendChild(head);
 
     var track = document.createElement('span');
     track.className = 'ptrack';
-    track.setAttribute('role', 'img');
-    track.setAttribute('aria-label', r.name + ': ' + Math.round(r.value * 100) + ' из 100 по общей шкале');
+    track.setAttribute('aria-hidden', 'true');
     var fill = document.createElement('i');
-    // минимум видимой полосы: нулевая длина читается как «не посчитали»
-    fill.style.width = Math.max(3, Math.round(r.value * 100)) + '%';
+    fill.style.width = score * 10 + '%';   // полоса ровно по числу
     track.appendChild(fill);
     row.appendChild(track);
 
