@@ -29,6 +29,7 @@
     shuffled: {},       // id новости → порядок показа комментариев
     answers: {},        // q1 / q2 / q3 → текст
     sent: {},           // q → true: свой комментарий «до расстановки» отправлен и зафиксирован
+    writing: {},        // id ветки → true: расстановка собрана, человек перешёл к своему комментарию
     participant: '',
     identify: false,
     /* Ключ отправки. Если сеть оборвалась и человек жмёт «Отправить» снова,
@@ -385,7 +386,8 @@
     renderProgress();
   }
 
-  /* Свой комментарий. Обычно появляется, когда расстановка собрана целиком.
+  /* Свой комментарий — отдельным экраном, не вместе с расстановкой.
+     Обычно он идёт после неё: собрал четыре — «Дальше» — пишешь свой.
      В ветке, где он стоит «до» (freeBefore), — наоборот: сначала свой ответ,
      и только потом чужие комментарии, чтобы готовые ходы не подсказали его. */
   function freeFirstPending(s) {
@@ -393,27 +395,23 @@
     return !!q && !!s.freeBefore && !(state.sent || {})[q.id];
   }
 
+  // сейчас на экране свой комментарий (а не расстановка)
+  function writingNow(s) {
+    var q = freeOf(s);
+    if (!q) return false;
+    return s.freeBefore ? freeFirstPending(s) : !!(state.writing || {})[s.id] && rankingDone(s);
+  }
+
   function renderFree(s) {
     var q = freeOf(s);
     $((q && s.freeBefore) ? 'aFreeBefore' : 'aFreeAfter').appendChild($('aFree'));
-    $('aRank').classList.toggle('hidden', freeFirstPending(s));
-
-    var openNow = !!q && (s.freeBefore || rankingDone(s));
-    var wasHidden = $('aFree').classList.contains('hidden');
-
+    var openNow = writingNow(s);
+    $('aRank').classList.toggle('hidden', openNow);
     $('aFree').classList.toggle('hidden', !openNow);
     if (!openNow) return;
 
-    // Ответ «до расстановки» отправляется кнопкой и после этого не правится:
-    // иначе его можно переписать, подсмотрев комментарии ветки.
-    var sendable = !!s.freeBefore;
-    var sent = sendable && !!(state.sent || {})[q.id];
-    $('aFreeSend').classList.toggle('hidden', !sendable || sent);
-    $('aFreeSent').classList.toggle('hidden', !sent);
-    $('aFreeText').readOnly = sent;
-
     $('aFreeQ').textContent = q.text;
-    var answering = !$('aFreeText').readOnly && countWords(state.answers[q.id] || '') < CONFIG.minWords;
+    var answering = countWords(state.answers[q.id] || '') < CONFIG.minWords;
     // подчёркивание «ручкой» — на том, на что человек сейчас отвечает: свой комментарий ещё не написан
     // длинный вопрос — подчёркнута только цель; короткий — целиком
     if (answering) {
@@ -426,12 +424,6 @@
       $('aFreeText').value = state.answers[q.id] || '';
     }
     updateCount(q);
-
-    if (wasHidden) {
-      // вопрос только что появился — время идёт уже ему, а не расстановке
-      if (state.openStep !== q.id) markStep(q.id);
-      $('aFree').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
   }
 
   function updateCount(q) {
@@ -439,10 +431,7 @@
     var ok = n >= CONFIG.minWords;
     $('aFreeCount').innerHTML = '<b>' + n + '</b> ' + wordForm(n);
     $('aFreeCount').classList.toggle('is-ok', ok);
-    var before = !!currentSituation().freeBefore;
-    $('aFreeTarget').textContent = ok ? (before ? 'Достаточно — можно отправлять.' : 'Достаточно, можно дальше.')
-                                      : 'Минимум ' + CONFIG.minWords + ' слов.';
-    $('aFreeSend').disabled = !ok;
+    $('aFreeTarget').textContent = ok ? 'Достаточно, можно дальше.' : 'Минимум ' + CONFIG.minWords + ' слов.';
   }
 
   /* Что сейчас мешает нажать «Дальше» — одной фразой под кнопкой. */
@@ -452,27 +441,37 @@
     var last = state.step === TEST.situations.length - 1;
     var words = q ? countWords(state.answers[q.id] || '') : 0;
 
-    var ready = rankingDone(s) && (!q || words >= CONFIG.minWords);
+    $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
+    $('aNext').textContent = last ? 'Отправить' : 'Дальше';
+
     if (freeFirstPending(s)) {
-      $('aNext').disabled = true;
-      $('aNext').textContent = last ? 'Отправить' : 'Дальше';
-      $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
-      $('aNote').textContent = 'Сначала ваш комментарий — минимум ' + CONFIG.minWords +
-        ' слов, затем «Отправить комментарий». Потом откроются комментарии ветки.';
+      // ответ «до расстановки» после «Дальше» не правится: иначе его можно
+      // переписать, подсмотрев комментарии ветки
+      $('aNext').textContent = 'Дальше';
+      $('aNext').disabled = words < CONFIG.minWords;
+      $('aNote').textContent = words < CONFIG.minWords
+        ? 'Минимум ' + CONFIG.minWords + ' слов'
+        : 'Дальше — комментарии ветки. Свой комментарий после этого не изменить.';
       return;
     }
 
-    $('aNext').disabled = !ready;
-    $('aNext').textContent = last ? 'Отправить' : 'Дальше';
-    $('aBack').textContent = state.step === 0 ? 'К инструкции' : 'Назад';
-
     if (!rankingDone(s)) {
+      $('aNext').textContent = 'Дальше';
+      $('aNext').disabled = true;
       $('aNote').textContent = 'Расставлено ' + ranked(s) + ' из ' + s.options.length;
-    } else if (q && words < CONFIG.minWords) {
-      $('aNote').textContent = 'Осталось написать ответ — минимум ' + CONFIG.minWords + ' слов';
-    } else {
-      $('aNote').textContent = last ? 'Готово — можно отправлять' : '';
+      return;
     }
+    // расстановка собрана, впереди свой комментарий — «Дальше» ведёт к нему
+    if (q && !s.freeBefore && !writingNow(s)) {
+      $('aNext').textContent = 'Дальше';
+      $('aNext').disabled = false;
+      $('aNote').textContent = 'Дальше — ваш комментарий';
+      return;
+    }
+    $('aNext').disabled = !!q && writingNow(s) && words < CONFIG.minWords;
+    $('aNote').textContent = $('aNext').disabled
+      ? 'Минимум ' + CONFIG.minWords + ' слов'
+      : (last ? 'Готово — можно отправлять' : '');
   }
 
   function tap(situationId, optId) {
@@ -490,7 +489,7 @@
     var s = currentSituation();
     var q = freeOf(s);
     // время идёт тому, что человек сейчас делает: расстановке или своему ответу
-    markStep(q && (s.freeBefore ? freeFirstPending(s) : rankingDone(s)) ? q.id : s.id);
+    markStep(writingNow(s) ? q.id : s.id);
     show('screenA');
     renderSituation();
   }
@@ -499,31 +498,41 @@
     $('aFreeText').addEventListener('input', function () {
       var q = freeOf(currentSituation());
       if (!q) return;
-      if ($('aFreeText').readOnly) return;
       state.answers[q.id] = $('aFreeText').value;
       save();
       updateCount(q);
       updateNav();
     });
 
-    $('aFreeSend').addEventListener('click', function () {
-      var s = currentSituation();
-      var q = freeOf(s);
-      if (!q || countWords(state.answers[q.id] || '') < CONFIG.minWords) return;
-      if (!state.sent) state.sent = {};
-      state.sent[q.id] = true;
+    // смена экрана внутри ветки: расстановка ↔ свой комментарий
+    function turn(s, q, toWriting) {
+      if (!state.writing) state.writing = {};
+      state.writing[s.id] = toWriting;
       save();
-      markStep(s.id);          // дальше время идёт расстановке
+      markStep(toWriting ? q.id : s.id);   // время идёт тому, что сейчас на экране
       renderSituation();
-      $('aRank').scrollIntoView({ block: 'start', behavior: 'smooth' });
-    });
+      window.scrollTo(0, 0);
+    }
 
     $('aNext').addEventListener('click', function () {
+      var s = currentSituation();
+      var q = freeOf(s);
+      if (freeFirstPending(s)) {
+        if (countWords(state.answers[q.id] || '') < CONFIG.minWords) return;
+        if (!state.sent) state.sent = {};
+        state.sent[q.id] = true;
+        turn(s, q, false);
+        return;
+      }
+      if (q && !s.freeBefore && rankingDone(s) && !writingNow(s)) { turn(s, q, true); return; }
       if (state.step < TEST.situations.length - 1) goTo(state.step + 1);
       else submit();
     });
 
     $('aBack').addEventListener('click', function () {
+      var s = currentSituation();
+      var q = freeOf(s);
+      if (q && !s.freeBefore && writingNow(s)) { turn(s, q, false); return; }
       if (state.step === 0) { markStep('intro'); showIntro(); return; }
       goTo(state.step - 1);
     });
