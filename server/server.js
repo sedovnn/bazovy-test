@@ -40,6 +40,7 @@ const env = {
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || '',
   DEEPSEEK_URL: process.env.DEEPSEEK_URL || '',       // только для проверок на своей машине
   MODEL: process.env.MODEL || '',
+  DEEPSEEK_THINKING: process.env.DEEPSEEK_THINKING || '',   // 1 — режим рассуждения
 };
 
 /* ---------- вход ведущего ---------- */

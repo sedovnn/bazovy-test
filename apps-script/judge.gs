@@ -212,9 +212,20 @@ function callDeepSeek(key, model, system, user) {
     model: model,
     max_tokens: MAX_TOKENS * 2,          // запас: русский текст у DeepSeek длиннее в токенах
     thinking: { type: 'disabled' },
+    temperature: 0,                      // у Claude её убрали, у DeepSeek есть: меньше разброс на одном тексте
     response_format: { type: 'json_object' },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   };
+  // DEEPSEEK_THINKING=1 — полное рассуждение: точнее держит границы, но заметно дольше и дороже.
+  // Рассуждение тратит свои токены, поэтому лимит выше; температура в этом режиме не действует.
+  // DEEPSEEK_THINKING=low — короткое рассуждение (reasoning_effort: low), быстрее полного.
+  var think = String(PROP.getProperty('DEEPSEEK_THINKING') || '');
+  if (think === '1' || think === 'low') {
+    delete payload.thinking;
+    payload.reasoning_effort = think === 'low' ? 'low' : 'high';
+    payload.max_tokens = 32000;
+    delete payload.temperature;
+  }
   var res;
   try {
     res = UrlFetchApp.fetch(PROP.getProperty('DEEPSEEK_URL') || DEEPSEEK_URL, {

@@ -50,7 +50,39 @@ const h = R[0].map(String), g = (r, k) => r[h.indexOf(k)];
 const ABIL = ['МК-1', 'ГА-1', 'ПР-1', 'ПП-1'];
 let rows = R.slice(1).filter(r => !onlyTest || String(g(r, 'test_id')) === onlyTest)
                     .filter(r => String(g(r, 'judge_status')) === 'ok');
+// самые наполненные ответы — первыми (по числу слов в трёх своих комментариях)
+const words = r => ['q1', 'q2', 'q3'].reduce((n, q) => n + (Number(g(r, q + '_words')) || 0), 0);
+rows.sort((a, b) => words(b) - words(a));
 if (limit) rows = rows.slice(0, Number(limit));
+const REPEAT = Number(process.env.REPEAT || 1);
+rows = rows.flatMap(r => Array(REPEAT).fill(r));
+
+/* RAZBOR=234,352 — подробный разбор этих ответов (по числу слов): тексты и границы
+   МК-1 и ГА-1 у Claude (из базы) и у DeepSeek (новый вызов). */
+if (process.env.RAZBOR) {
+  const pick = process.env.RAZBOR.split(',').map(Number);
+  const seen = new Set();
+  rows.filter(r => pick.includes(words(r)) && !seen.has(words(r)) && seen.add(words(r))).forEach(r => {
+    const test = ctx.CONFIG.tests.find(t => t.id === String(g(r, 'test_id')));
+    const texts = test.free.map(q => String(g(r, q.id + '_text') || ''));
+    console.log('\n================ ответ на', words(r), 'слов');
+    texts.forEach((t, i) => console.log(`\n[Свой комментарий ${i + 1}] ${t}`));
+    const t0 = Date.now();
+    const v = ctx.judgeAnswers(test.id, texts);
+    console.log(`\n(судья думал ${Math.round((Date.now() - t0) / 1000)} с)`);
+    for (const a of ['МК-1', 'ГА-1']) {
+      console.log(`\n--- ${a}: Claude ${g(r, a + '_level')} · DeepSeek ${v.ok ? v.judge[a].level : 'ошибка ' + v.error}`);
+      console.log('Claude, границы:\n' + g(r, a + '_gates'));
+      if (g(r, a + '_unclear')) console.log('Claude, сомнение: ' + g(r, a + '_unclear'));
+      if (v.ok) {
+        const gt = v.judge[a].gates;
+        console.log('DeepSeek, границы:\n' + ['2', '3', '4', '5'].map(k => `${k - 1}→${k}: ${gt[k].s}${gt[k].q ? ' «' + gt[k].q + '»' : ''}`).join('\n'));
+        if (v.judge[a].unclear) console.log('DeepSeek, сомнение: ' + v.judge[a].unclear);
+      }
+    }
+  });
+  process.exit(0);
+}
 
 const diff = { same: 0, up: 0, down: 0 };
 rows.forEach((r, i) => {
@@ -65,7 +97,7 @@ rows.forEach((r, i) => {
     if (was && now) diff[now === was ? 'same' : now > was ? 'up' : 'down']++;
     return `${a} ${was ?? '—'}→${now ?? '—'}${v.judge[a] && v.judge[a].stronger ? '' : ' (без «сильнее»)'}`;
   }).join(' · ');
-  console.log(`#${i + 1} ${test.id} · ${sec} с · Claude→DeepSeek: ${line}`);
+  console.log(`#${i + 1} ${test.id} · ${words(r)} слов · ${sec} с · Claude→DeepSeek: ${line}`);
   ABIL.slice(0, 1).forEach(a => { if (v.judge[a]) console.log(`   ${a} сильная сторона: ${v.judge[a].has}`); });
 });
 console.log(`\nсовпало ${diff.same}, DeepSeek выше ${diff.up}, ниже ${diff.down}`);
