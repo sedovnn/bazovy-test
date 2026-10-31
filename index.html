@@ -18,15 +18,15 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <!-- Шрифт грузим не блокируя разбор: media="print" + onload. Тот же приём, что на платформе. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261031-1525" />
-<link rel="stylesheet" href="css/brand.css?v=20261031-1525" />
+<link rel="stylesheet" href="css/app.css?v=20261031-1551" />
+<link rel="stylesheet" href="css/brand.css?v=20261031-1551" />
 </head>
 <body>
 
 <header class="hdr">
   <div class="frame hdr-in">
     <span class="logo"><img class="logo-fp" src="assets/fp.svg" alt="fp" /><span class="logo-prod">i(m)perfect</span></span>
-    <span class="kicker kicker-inline" id="hdrLabel">мини-тест</span>
+    
   </div>
 </header>
 
@@ -43,15 +43,12 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <!-- 1. вход -->
 <section class="frame enter" id="screenEnter">
   <img class="peter" src="assets/peter.png" alt="" aria-hidden="true" />
-  <p class="kicker">Вход</p>
   <h1 class="hero-h">Мини-тест<br />на <span class="pen">стратегическое мышление</span></h1>
-  <p class="lead read" style="margin-top:24px">Около пятнадцати минут: одна новость о крупной компании, 6 веток комментариев под ней и 3 своих коротких комментария.</p>
 
   <form id="enterForm" autocomplete="off">
     <p class="kicker" style="margin-bottom:8px"><label for="codeInput">Код сессии</label></p>
     <input class="code-in" id="codeInput" name="code" maxlength="6" inputmode="latin"
-           autocapitalize="characters" spellcheck="false" placeholder="XXXXXX" aria-describedby="codeHint" />
-    <p class="util" id="codeHint" style="margin:8px 0 20px">Шесть символов — их называет ведущий.</p>
+           autocapitalize="characters" spellcheck="false" placeholder="XXXXXX" style="margin-bottom:20px" />
     <button class="btn btn-primary" id="enterBtn" type="submit" disabled>Начать</button>
   </form>
 
@@ -64,28 +61,18 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 <!-- 2. как отвечать -->
 <section class="frame enter hidden" id="screenIntro">
-  <p class="kicker">Как отвечать</p>
-  <h2 class="screen-h read">Как устроен тест</h2>
+  <img class="peter" src="assets/peter.png" alt="" aria-hidden="true" />
+  <h1 class="hero-h">Мини-тест<br />на стратегическое мышление</h1>
   <div class="read">
-    <!-- Легенда приходит из файла теста: у каждого теста своя. -->
+    <!-- Вводная приходит из файла кейса (одна на все кейсы, правится в спеке). -->
     <div id="introText"></div>
-    <p>Нажмите на комментарий, который написали бы сами, — он получит номер&nbsp;1. Дальше по убыванию: второй, третий, четвёртый.</p>
-    <p>Нажали не туда — нажмите на комментарий ещё раз, номер снимется. «Дальше» включается, когда расставлены все четыре.</p>
   </div>
 
   <!-- Только в именной сессии. Обычные прогоны анонимны, поле скрыто. -->
   <div class="hidden" id="nameBox" style="margin:24px 0">
     <p class="kicker" style="margin-bottom:8px"><label for="nameInput">Как вас зовут</label></p>
     <input class="op-field" id="nameInput" maxlength="120" autocomplete="name"
-           placeholder="Имя" aria-describedby="nameHint" />
-    <p class="util" id="nameHint" style="margin:8px 0 0">Ведущий увидит ваше имя рядом с результатом —
-      этот прогон нужен, чтобы сопоставить его с вашим прохождением i(m)perfect.</p>
-  </div>
-
-  <div class="info read" style="margin:24px 0">
-    <p class="kicker" style="margin-bottom:6px">Что дальше</p>
-    <p style="margin:0">Одна новость и 6 веток комментариев под ней. По ходу вы трижды напишете
-      свой комментарий — от 20 слов. Вернуться к предыдущей ветке можно.</p>
+           placeholder="Имя" />
   </div>
 
   <button class="btn btn-primary" id="introBtn" type="button">Начать</button>
@@ -122,6 +109,7 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
   <!-- Свободный вопрос живёт на том же экране, что и расстановка: человек
        остаётся в ситуации, которую только что читал, новый кейс не открывается. -->
   <div class="free hidden read" id="aFree">
+    <img class="peter-think" src="assets/peter-think.png" alt="" aria-hidden="true" />
     <p class="kicker" id="aFreeKicker">Ваш комментарий</p>
     <p class="question" id="aFreeQ"></p>
     <label class="kicker" for="aFreeText" style="display:block;margin:16px 0 8px">Ваш ответ</label>
@@ -149,7 +137,7 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 <!-- 4. ожидание -->
 <section class="frame wait hidden" id="screenWait">
-  <img class="peter" src="assets/peter.png" alt="" aria-hidden="true" />
+  <img class="peter-run" src="assets/peter-run.png" alt="" aria-hidden="true" />
   <p class="kicker">Отправлено</p>
   <h2 class="screen-h">Читаем ваши ответы</h2>
   <p>Оценка ваших ответов обычно занимает около минуты, иногда до двух. Не закрывайте страницу.</p>
@@ -159,6 +147,7 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 <!-- 5. карта участника -->
 <section class="frame map hidden" id="screenMap">
+  <img class="peter-win" src="assets/peter-win.png" alt="" aria-hidden="true" />
   <p class="kicker">Результат</p>
   <h2 class="screen-h">Ваше стратегическое мышление</h2>
 
@@ -197,8 +186,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 </main>
 
-<script src="js/config.js?v=20261031-1525"></script>
-<script src="js/api.js?v=20261031-1525"></script>
-<script src="js/test.js?v=20261031-1525"></script>
+<script src="js/config.js?v=20261031-1551"></script>
+<script src="js/api.js?v=20261031-1551"></script>
+<script src="js/test.js?v=20261031-1551"></script>
 </body>
 </html>

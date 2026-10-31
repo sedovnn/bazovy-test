@@ -206,11 +206,52 @@
     box.innerHTML = '';
     // В именной сессии абзац про анонимность заменён: имя спрашиваем, на экран не выводим.
     var intro = (state.identify && TEST.introNamed) ? TEST.introNamed : TEST.intro;
+    // Шаги «1. …» — списком с крупными номерами (брендбук: 01, 02, 03);
+    // всё после «Правильного ответа нет…» — служебной строкой мелко.
+    var steps = null, after = false;
     intro.forEach(function (para, i) {
+      var m = para.match(/^(\d+)\.\s+(.*)$/);
+      if (m) {
+        if (!steps) { steps = document.createElement('ol'); steps.className = 'steps'; box.appendChild(steps); }
+        var li = document.createElement('li');
+        var n = document.createElement('span');
+        n.className = 'step-n';
+        n.textContent = ('0' + m[1]).slice(-2);
+        var t = document.createElement('span');
+        t.className = 'step-t';
+        // первая фраза — заголовок шага, остальное — пояснение строкой ниже
+        var cut = m[2].indexOf('. ');
+        var head = document.createElement('b');
+        head.className = 'step-h';
+        head.textContent = cut < 0 ? m[2] : m[2].slice(0, cut);
+        t.appendChild(head);
+        if (cut >= 0) {
+          var more = document.createElement('span');
+          more.className = 'step-d';
+          // тире не переносится в начало строки
+          more.textContent = m[2].slice(cut + 2).replace(/ —/g, '\u00a0—');
+          t.appendChild(more);
+        }
+        li.appendChild(n); li.appendChild(t);
+        steps.appendChild(li);
+        return;
+      }
+      steps = null;
       var el = document.createElement('p');
-      el.className = i === 0 ? 'lead' : '';
-      el.style.margin = '0 0 14px';
-      el.textContent = para;
+      el.className = i === 0 ? 'lead' : (after ? 'util intro-note' : '');
+      if (i === 0 && para.indexOf('примерно на 15 минут') >= 0) {
+        // главный смысл вводной — подчёркнут «ручкой»
+        var at = para.indexOf('примерно на 15 минут');
+        el.appendChild(document.createTextNode(para.slice(0, at)));
+        var pen = document.createElement('span');
+        pen.className = 'pen';
+        pen.textContent = 'примерно на 15 минут';
+        el.appendChild(pen);
+        el.appendChild(document.createTextNode(para.slice(at + 'примерно на 15 минут'.length)));
+      } else {
+        el.textContent = para;
+      }
+      if (/^Правильного ответа/.test(para)) after = true;
       box.appendChild(el);
     });
     $('nameBox').classList.toggle('hidden', !state.identify);
@@ -561,14 +602,6 @@
     });
 
     $('mapLead').textContent = leadText(rows);
-    var h = document.querySelector('#screenMap .screen-h');
-    if (h && !h.parentNode.classList.contains('pattern')) {
-      var wrap = document.createElement('div');
-      wrap.className = 'pattern';
-      h.parentNode.insertBefore(wrap, h);
-      wrap.appendChild(h);
-      wrap.insertAdjacentHTML('afterbegin', '<i style="right:0;top:-8px;width:22%"></i><i style="left:34%;top:22px;width:18%"></i>');
-    }
     // сильнейший навык подчёркнут «ручкой»
     var top = rows.slice().sort(function (x, y) { return y.value - x.value; })[0];
     var name = top ? top.name.toLowerCase() : '';

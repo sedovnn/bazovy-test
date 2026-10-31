@@ -88,21 +88,36 @@ h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, stron
 
 
 
-/* Питер Фьючерс [40–44]: инструмент усиления, а не центр композиции.
-   Только на входе и в ожидании: неформальные экраны, где нет текста для работы.
-   Выглядывает из правого края окна, смотрит на колонку, текст не закрывает. */
+/* Питер Фьючерс [39–44]: инструмент усиления, а не центр композиции.
+   По одной позе на этап: выглядывает на входе и во вводной, думает над своим
+   комментарием, бежит, пока судья читает, радуется на карте. Текст не закрывает. */
 .peter {
   position: fixed; right: -18px; bottom: 12vh; width: 170px; height: auto;
   pointer-events: none; user-select: none; z-index: 0;
   animation: peter-peek 0.9s cubic-bezier(.2,.8,.2,1) 0.6s both;
 }
-.frame > :not(.peter) { position: relative; z-index: 1; }
+.frame > :not(.peter):not(.peter-win) { position: relative; z-index: 1; }
 @keyframes peter-peek { from { transform: translateX(110%); } to { transform: none; } }
 @media (max-width: 760px) {
   /* на телефоне колонка во всю ширину: Питер меньше и прижат к низу, под кнопкой */
   .peter { width: 100px; right: -10px; bottom: 12px; }
 }
-@media (prefers-reduced-motion: reduce) { .peter { animation: none; } }
+.peter-think { float: right; width: 60px; height: auto; margin: -6px 0 8px 16px; pointer-events: none; }
+.peter-run { display: block; width: 150px; height: auto; margin: 0 0 20px; pointer-events: none;
+  animation: peter-run 0.45s ease-in-out infinite alternate; }
+@keyframes peter-run { from { transform: translateY(0); } to { transform: translateY(-5px); } }
+.peter-win { float: right; width: 110px; height: auto; margin: 0 0 12px 16px; pointer-events: none;
+  animation: peter-peek 0.9s cubic-bezier(.2,.8,.2,1) 0.3s both; }
+@media (max-width: 560px) {
+  /* во вводной на телефоне текста много: Питер не у низа окна, а у короткой
+     первой строки заголовка, чтобы не наезжать на кнопку */
+  #screenIntro { position: relative; }
+  #screenIntro .peter { position: absolute; top: 8px; right: 4px; bottom: auto; width: 60px; }
+  .step-h { font-size: 18px; }
+  .peter-think { width: 48px; }
+  .peter-win { width: 80px; }
+}
+@media (prefers-reduced-motion: reduce) { .peter, .peter-run, .peter-win { animation: none; } }
 
 /* Заголовок входа: без капса и без выделения слова цветом [30]. */
 .hero-h { text-transform: none; font-weight: 500; line-height: 0.9; letter-spacing: -0.02em; }
@@ -164,3 +179,18 @@ main .kicker { margin-bottom: 14px; }
 .stronger-k { color: var(--muted); }
 .stronger-line:first-child { color: var(--muted); }
 .stronger-line.is-strong { font-weight: 500; }
+
+/* Вводная: шаги крупными номерами 01 · 02 · 03 (брендбук, макеты со списком «01 …»),
+   рядом заголовок шага и пояснение под ним. */
+.steps { list-style: none; margin: 24px 0 28px; padding: 0; display: grid; gap: 18px; }
+.steps li { display: grid; grid-template-columns: 64px 1fr; align-items: start; gap: 12px; }
+.step-n { font-size: 48px; font-weight: 500; line-height: 0.85; color: var(--blue700); letter-spacing: -0.02em; }
+.step-t { line-height: 1.25; }
+.step-h { display: block; font-weight: 500; font-size: var(--t-sub); line-height: 1.15; }
+.step-d { display: block; margin-top: 4px; color: var(--muted); }
+.intro-note { margin-top: 20px !important; }
+#screenIntro .lead { margin-bottom: 8px !important; }
+@media (max-width: 560px) {
+  .steps li { grid-template-columns: 52px 1fr; }
+  .step-n { font-size: 40px; }
+}

@@ -192,8 +192,9 @@ def parse_cases(path):
     im = re.search(r'^## Вводная[^\n]*\n(.*?)(?=^---|^#)', text, re.M | re.S)
     if not im:
         fail(f'{path.name}: нет раздела «## Вводная»')
-    # В именной сессии абзац про анонимность и вывод на экран не годится:
+    # Если в вводной есть абзац, который не годится для именной сессии,
     # его заменяет строка «*В именной сессии вместо этого абзаца:* …».
+    # Нет такой строки — вводная одна для обеих сессий.
     intro, intro_named = [], []
     NAMED = '*В именной сессии вместо этого абзаца:*'
     for ln in (x.strip() for x in im.group(1).split('\n')):
@@ -202,12 +203,13 @@ def parse_cases(path):
         if ln.startswith(NAMED):
             if not intro:
                 fail(f'{path.name}: замена для именной сессии стоит раньше вводной')
-            intro_named[-1] = ln[len(NAMED):].strip()
+            repl = ln[len(NAMED):].strip()
+            # «(ничего …)» — в именной сессии абзац просто убирается
+            intro_named[-1] = '' if repl.startswith('(ничего') else repl
         elif not ln.startswith('*'):
             intro.append(ln)
             intro_named.append(ln)
-    if intro_named == intro:
-        fail(f'{path.name}: в вводной нет замены для именной сессии ({NAMED} …)')
+    intro_named = [x for x in intro_named if x]
 
     body = text[:text.index('# Ключи')] if '# Ключи' in text else text
     cases = []
