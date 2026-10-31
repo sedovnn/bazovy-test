@@ -36,7 +36,7 @@ var CONFIG = {
       "id": "nike-1.0",
       "name": "Nike",
       "file": "data/case_nike.json",
-      "v": "632f8055",
+      "v": "e6127f10",
       "free": [
         {
           "id": "q1",
