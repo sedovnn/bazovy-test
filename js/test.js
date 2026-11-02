@@ -796,7 +796,7 @@
     return p;
   }
 
-  /* «О чём этот навык» — тексты методолога по каждой способности навыка,
+  /* «Из чего состоит навык» — тексты методолога по каждой способности навыка,
      дословно из spec/тексты_отчёта_Кати.md. Свёрнуто: отчёт остаётся
      коротким, а смысл навыка под рукой. */
   function aboutBlock(sk) {
@@ -809,14 +809,17 @@
     var d = document.createElement('details');
     d.className = 'rep-about';
     var s = document.createElement('summary');
-    s.textContent = 'О чём этот навык';
+    var n = items.length;
+    s.textContent = 'Из чего состоит навык · ' + n + ' ' + (n === 1 ? 'часть' : n < 5 ? 'части' : 'частей');
     d.appendChild(s);
-    items.forEach(function (it) {
+    // нумерованный список: «1. Название — пояснение», чтобы читалось как составляющие
+    items.forEach(function (it, i) {
       var p = document.createElement('p');
       var b = document.createElement('b');
-      b.textContent = it.name + '. ';
+      b.textContent = (i + 1) + '. ' + it.name;
       p.appendChild(b);
-      p.appendChild(document.createTextNode(it.about));
+      var about = String(it.about || '');
+      p.appendChild(document.createTextNode(' — ' + about.charAt(0).toLowerCase() + about.slice(1)));
       d.appendChild(p);
     });
     return d;

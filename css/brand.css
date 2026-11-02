@@ -47,7 +47,9 @@ h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, stron
 .kicker, .rep-tag, .news-fold > summary { font-size: var(--t-small); font-weight: 400; color: var(--muted); }
 
 /* Нельзя выделять отдельные слова цветом или жирностью [30] */
-.gap-line b, .train b, .rep-about b { font-weight: 400 !important; color: inherit !important; }
+.gap-line b, .train b { font-weight: 400 !important; color: inherit !important; }
+/* в «Из чего состоит навык» название части — номером и весом 500: так читается как составляющая */
+.rep-about b { font-weight: 500 !important; color: var(--ink) !important; }
 
 /* Вермилион — CTA и ключевые смыслы [23]; голубой — второстепенные кнопки,
    интерфейсные блоки, фоновые акценты [23]. */
