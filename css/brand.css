@@ -57,7 +57,9 @@ h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, stron
 .seg.is-now { background: var(--blue500); opacity: 1; }
 .opener { background: var(--blue300); }                 /* интерфейсный блок: реплика ветки */
 .info { background: var(--gray5); }
-.gap-line { background: var(--gray5); border-color: var(--gray3); }
+.gap-line { background: none; border: 0; border-left: 3px solid var(--verm); border-radius: 0; padding: 2px 0 2px 16px; }
+.gap-line .kicker { margin: 0 0 6px; color: var(--accent-ink); }
+.gap-line p:last-child { margin: 0; }
 
 /* Голубой текстовыделитель — для меток-тегов [33] */
 .tag { display: inline; background: var(--blue300); color: var(--black); padding: 0 3px;

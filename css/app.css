@@ -879,10 +879,11 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
 .profile { margin: 24px 0 0; max-width: var(--w-form); }
 
 .prow {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr;
   gap: 6px;
-  padding: 14px 0;
+  padding: 14px 0 22px;   /* снизу место под приписку — у всех строк одинаково */
   align-items: center;
 }
 
@@ -908,15 +909,20 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 32px 0; }
   border-radius: 2px;
 }
 
-/* Приписка появляется только там, где записка отстаёт от расстановки. */
+/* Приписка появляется только там, где свой ответ отстаёт от расстановки.
+   Стоит в нижнем отступе строки: с ней и без неё строки одной высоты. */
 .prow-lag {
-  font-size: var(--fs-util);
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  font-size: 12px;
+  line-height: 1.2;
   color: var(--muted);
 }
 
 @media (min-width: 700px) {
-  .prow { grid-template-columns: minmax(170px, 230px) minmax(160px, 1fr); gap: 20px; }
-  .prow-lag { grid-column: 2; margin-top: -2px; }
+  .prow { grid-template-columns: 300px minmax(160px, 1fr); gap: 20px; }
+  .prow-lag { left: 320px; }
 }
 
 .scale-note {
