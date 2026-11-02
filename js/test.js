@@ -81,7 +81,7 @@
   }
 
   function show(id) {
-    var screens = ['screenEnter', 'screenIntro', 'screenA', 'screenWait', 'screenMap'];
+    var screens = ['screenEnter', 'screenIntro', 'screenA', 'screenWait', 'screenMap', 'screenClosed'];
     for (var i = 0; i < screens.length; i++) {
       $(screens[i]).classList.toggle('hidden', screens[i] !== id);
     }
@@ -165,6 +165,7 @@
           state.stage = res.stage || '';
           state.testId = res.testId || '';
           state.identify = res.identify === true;
+          state.archiveAt = res.archiveAt || '';
           state.startedAt = Date.now();
           state.submissionId = 'з' + Date.now().toString(36) + '-' +
                                Math.random().toString(36).slice(2, 10);
@@ -176,6 +177,11 @@
           showIntro();
         })
         .catch(function (err) {
+          // закрытый поток, или по ссылке пришли в стёртый — заглушка, а не ошибка ввода
+          if (err.message === 'closed' || (err.message === 'no_session' && codeFromUrl() === code)) {
+            showClosed();
+            return;
+          }
           $('enterErr').textContent = err.message === 'no_session'
             ? 'Такой сессии нет. Проверьте код у ведущего.'
             : ('Не получилось войти: ' + err.message);
@@ -567,7 +573,7 @@
       try { sessionStorage.removeItem(STORE); } catch (e) {}
       rememberResult(state.code, res.rowId);
       renderMap(res);
-      showKeepLink(res.rowId);
+      showKeepLink(res.rowId, state.archiveAt);
       show('screenMap');
     }).catch(function (err) {
       clearInterval(tick);
@@ -926,8 +932,19 @@
     catch (e) { return ''; }
   }
 
-  function showKeepLink(rowId) {
+  /* Поток закрыт, удалён или ушёл в архив: тест и карты по ссылкам не открываются. */
+  function showClosed() {
+    try { sessionStorage.removeItem(STORE); } catch (e) {}
+    show('screenClosed');
+  }
+
+  function showKeepLink(rowId, until) {
     if (!rowId) { $('keepBox').classList.add('hidden'); return; }
+    // карта открывается, пока поток не ушёл в архив — через 30 дней после создания
+    var d = new Date(until || '');
+    $('keepUntil').textContent = isNaN(d)
+      ? 'Ссылка работает 30 дней.'
+      : 'Ссылка работает до ' + d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + '.';
     var link = resultLink(rowId);
     $('keepLink').textContent = link;
     $('keepBox').classList.remove('hidden');
@@ -946,13 +963,14 @@
       .then(function () { return API.result(rowId); })
       .then(function (res) {
         renderMap(res);
-        showKeepLink(rowId);
+        showKeepLink(rowId, res.expiresAt);
         show('screenMap');
       })
       .catch(function (err) {
+        // поток закрыт или стёрт — карту по ссылке больше не открыть
+        if (err.message === 'closed' || err.message === 'no_result') { showClosed(); return; }
         show('screenEnter');
         $('enterErr').textContent =
-          err.message === 'no_result' ? 'Такой карты нет. Проверьте ссылку.' :
           err.message === 'old_test' ? 'Эта карта от прежней версии теста — открыть её больше нельзя.' :
           ('Не удалось открыть карту: ' + err.message);
         $('enterErr').classList.remove('hidden');

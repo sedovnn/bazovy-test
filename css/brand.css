@@ -108,6 +108,8 @@ h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, stron
 @keyframes peter-run { from { transform: translateY(0); } to { transform: translateY(-5px); } }
 .peter-win { float: right; width: 110px; height: auto; margin: 0 0 12px 16px; pointer-events: none;
   animation: peter-peek 0.9s cubic-bezier(.2,.8,.2,1) 0.3s both; }
+.peter-heart { display: block; width: 130px; height: auto; margin: 0 0 24px; pointer-events: none;
+  animation: peter-peek 0.9s cubic-bezier(.2,.8,.2,1) 0.2s both; }
 @media (max-width: 560px) {
   /* во вводной на телефоне текста много: Питер не у низа окна, а у короткой
      первой строки заголовка, чтобы не наезжать на кнопку */
@@ -117,7 +119,7 @@ h1, h2, h3, .screen-h, .question, .skill-name, .news-title, .prow-name, b, stron
   .peter-think { width: 48px; }
   .peter-win { width: 80px; }
 }
-@media (prefers-reduced-motion: reduce) { .peter, .peter-run, .peter-win { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .peter, .peter-run, .peter-win, .peter-heart { animation: none; } }
 
 /* Заголовок входа: без капса и без выделения слова цветом [30]. */
 .hero-h { text-transform: none; font-weight: 500; line-height: 0.9; letter-spacing: -0.02em; }

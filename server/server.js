@@ -4,6 +4,8 @@
      GET  /api                  — проверка, что сервер жив
      GET  /admin/export.csv?key — все ответы одной таблицей для Excel (ключ ADMIN_KEY
                                   или вход ведущего: ?token=)
+          &code=КОД               — ответы одного потока, в том числе ушедшего в архив
+          /admin/export.json      — то же JSON-массивом: строка — объект «столбец: значение»
 
    Кабинет ведущего: один логин и пароль (HOST_LOGIN, HOST_PASSWORD_HASH).
    Вход — действие login, в ответ токен на 30 дней. Действия ведущего без
@@ -134,19 +136,28 @@ function csv(rows) {
 }
 
 let exportStore = null;
-function exportCsv(which) {
+function exportRows(which, code) {
   if (!exportStore) exportStore = sheets.open(env.DB_PATH);
-  // удалённые сессии и их ответы в выгрузку не идут
-  const sess = exportStore.rowsOf('sessions');
-  const sh = sess[0] || [], iDel = sh.indexOf('deleted_at'), iCode = sh.indexOf('code');
-  const gone = new Set(iDel < 0 ? [] : sess.slice(1).filter(r => r[iDel]).map(r => r[iCode]));
   let rows = exportStore.rowsOf(which);
-  if (gone.size && rows.length) {
-    const col = rows[0].indexOf(which === 'sessions' ? 'code' : 'session_code');
-    rows = [rows[0]].concat(rows.slice(1).filter(r => !gone.has(r[col])));
+  if (!rows.length) return rows;
+  const col = rows[0].indexOf(which === 'sessions' ? 'code' : 'session_code');
+  if (code) {
+    // один поток — по запросу ведущего, в том числе из архива
+    rows = [rows[0]].concat(rows.slice(1).filter(r => String(r[col]) === code));
+  } else {
+    // общая выгрузка: удалённые сессии и их ответы не идут
+    const sess = exportStore.rowsOf('sessions');
+    const sh = sess[0] || [], iDel = sh.indexOf('deleted_at'), iCode = sh.indexOf('code');
+    const gone = new Set(iDel < 0 ? [] : sess.slice(1).filter(r => r[iDel]).map(r => r[iCode]));
+    if (gone.size) rows = [rows[0]].concat(rows.slice(1).filter(r => !gone.has(r[col])));
   }
   const w = exportStore.width(rows);
-  return csv(rows.map(r => exportStore.pad(r, w)));
+  return rows.map(r => exportStore.pad(r, w));
+}
+
+function exportJson(rows) {
+  const [head, ...body] = rows.length ? rows : [[]];
+  return JSON.stringify(body.map(r => Object.fromEntries(head.map((h, i) => [h, r[i]]))), null, 1);
 }
 
 /* ---------- статика для проверки на своей машине ---------- */
@@ -217,17 +228,22 @@ http.createServer((req, res) => {
       judge: env.PROVIDER === 'deepseek' ? 'deepseek' : (env.JUDGE_URL ? 'apps-script' : false) }));
   }
 
-  if (url.pathname === '/admin/export.csv' || url.pathname === '/admin/sessions.csv') {
+  if (url.pathname === '/admin/export.csv' || url.pathname === '/admin/sessions.csv' ||
+      url.pathname === '/admin/export.json') {
     const byKey = env.ADMIN_KEY && url.searchParams.get('key') === env.ADMIN_KEY;
     if (!byKey && !tokenValid(url.searchParams.get('token'))) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('нужен ключ');
     }
     const which = url.pathname === '/admin/sessions.csv' ? 'sessions' : 'responses';
+    const code = String(url.searchParams.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const asJson = url.pathname.endsWith('.json');
+    const rows = exportRows(which, code);
     const stamp = new Date().toISOString().slice(0, 10);
-    res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Cache-Control': 'no-store',
-                         'Content-Disposition': `attachment; filename="bazovy-test-${which}-${stamp}.csv"` });
-    return res.end(exportCsv(which));
+    const name = `bazovy-test-${code || which}-${stamp}.${asJson ? 'json' : 'csv'}`;
+    res.writeHead(200, { 'Content-Type': (asJson ? 'application/json' : 'text/csv') + '; charset=utf-8',
+                         'Cache-Control': 'no-store', 'Content-Disposition': `attachment; filename="${name}"` });
+    return res.end(asJson ? exportJson(rows) : csv(rows));
   }
 
   if (env.STATIC_DIR && req.method === 'GET') return serveStatic(req, res);

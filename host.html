@@ -17,8 +17,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261102-1154" />
-<link rel="stylesheet" href="css/brand-host.css?v=20261102-1154" />
+<link rel="stylesheet" href="css/app.css?v=20261102-1300" />
+<link rel="stylesheet" href="css/brand-host.css?v=20261102-1300" />
 </head>
 <body class="op">
 
@@ -65,6 +65,16 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
     </table>
   </div>
   <p class="util" id="sessNote" style="margin-top:12px"></p>
+
+  <details class="details hidden" id="archiveBox" style="margin-top:32px">
+    <summary id="archiveSum">Архив</summary>
+    <div class="details-body">
+      <p class="util" style="margin:0 0 12px">Через 30 дней после создания поток уходит в архив сам: по ссылке на тест
+        не войти, карты результатов по ссылкам не открываются — участник видит «тест больше не доступен».
+        Ответы сохранены: скачайте их файлом.</p>
+      <ul class="cand-list" id="archiveList"></ul>
+    </div>
+  </details>
 
   <details class="details hidden" id="trashBox" style="margin-top:32px">
     <summary id="trashSum">Удалённые сессии</summary>
@@ -234,9 +244,9 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 </main>
 
-<script src="js/config.js?v=20261102-1154"></script>
-<script src="js/qr.js?v=20261102-1154"></script>
-<script src="js/api.js?v=20261102-1154"></script>
-<script src="js/host.js?v=20261102-1154"></script>
+<script src="js/config.js?v=20261102-1300"></script>
+<script src="js/qr.js?v=20261102-1300"></script>
+<script src="js/api.js?v=20261102-1300"></script>
+<script src="js/host.js?v=20261102-1300"></script>
 </body>
 </html>

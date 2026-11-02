@@ -284,21 +284,40 @@ function findSession(code) {
     }
     return { code: code, title: col('title'), stage: col('stage'),
              testId: String(col('test_id') || ''), identify: String(col('identify')) === 'да',
-             hostKey: String(col('host_key') || ''), deleted: !!col('deleted_at') };
+             hostKey: String(col('host_key') || ''), deleted: !!col('deleted_at'),
+             createdAt: String(col('created_at') || '') };
   }
   return null;
+}
+
+/* Архив: через ARCHIVE_DAYS дней после создания поток закрывается сам —
+   по ссылке на тест не войти, карты результатов по ссылкам не открываются.
+   Ответы остаются в базе: ведущий скачивает их файлом из «Архива». */
+var ARCHIVE_DAYS = 30;
+
+function archiveAt(createdAt) {
+  var t = Date.parse(createdAt || '');
+  return isNaN(t) ? '' : new Date(t + ARCHIVE_DAYS * 864e5).toISOString();
+}
+
+function isArchived(createdAt) {
+  var at = archiveAt(createdAt);
+  return !!at && at < new Date().toISOString();
 }
 
 function checkSession(p) {
   var code = String(p.code || '').toUpperCase();
   var s = findSession(code);
-  if (!s || s.deleted) return { ok: false, error: 'no_session' };
+  if (!s) return { ok: false, error: 'no_session' };
+  // удалённый или ушедший в архив поток — участнику заглушка, а не «нет такой сессии»
+  if (s.deleted || isArchived(s.createdAt)) return { ok: false, error: 'closed' };
   // Тест сессии мог смениться новой версией: тогда тексты и метки другие,
   // и пройти его уже нельзя — говорим прямо, а не падаем на загрузке.
   if (!testById(s.testId)) {
     return { ok: false, error: 'эта сессия заведена на прежней версии теста. Попросите ведущего завести новую.' };
   }
-  return { ok: true, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify };
+  return { ok: true, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify,
+           archiveAt: archiveAt(s.createdAt) };
 }
 
 /* ---------- отправка ---------- */
@@ -461,7 +480,14 @@ function findSubmission(submissionId) {
 function result(p) {
   var rowId = String(p.rowId || '').slice(0, 64);
   if (!rowId) return { ok: false, error: 'no_result' };
-  return readResponse('row_id', rowId) || { ok: false, error: 'no_result' };
+  var res = readResponse('row_id', rowId);
+  if (!res) return { ok: false, error: 'no_result' };
+  // карта живёт, пока жив поток: удалён или в архиве — по ссылке не открывается
+  var session = findSession(res.sessionCode);
+  if (session && (session.deleted || isArchived(session.createdAt))) return { ok: false, error: 'closed' };
+  if (session) res.expiresAt = archiveAt(session.createdAt);
+  delete res.sessionCode;
+  return res;
 }
 
 /* Собирает ответ по строке таблицы. Судья повторно не вызывается.
@@ -536,6 +562,7 @@ function readResponse(column, value) {
 
   return {
     ok: true, repeat: true, rowId: String(col('row_id') || ''),
+    sessionCode: String(col('session_code') || ''),
     stage: String(col('stage') || ''), testId: test.id,
     map: buildMap(CONFIG.skills, test, orderings, judge),
     judge: judge, judge_status: status || 'error',
@@ -579,7 +606,8 @@ function legacyResponse(col) {
     map: { skills: skills, perSituation: {}, gaps: [], extra: [] },
     judge_status: status || 'error',
     judge_error: String(col('judge_error') || ''),
-    feedback: String(col('feedback') || '')
+    feedback: String(col('feedback') || ''),
+    sessionCode: String(col('session_code') || '')
   };
 }
 
@@ -778,7 +806,9 @@ function listSessions(p) {
                testId: testId, current: !!testById(testId),
                identify: String(col(sess[j], 'identify')) === 'да',
                deleted: !!col(sess[j], 'deleted_at'),
+               archived: isArchived(String(col(sess[j], 'created_at') || '')),
                createdAt: String(col(sess[j], 'created_at') || ''),
+               archiveAt: archiveAt(String(col(sess[j], 'created_at') || '')),
                count: counts[code] || 0, lastAt: last[code] || '' });
   }
   out.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });

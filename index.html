@@ -18,8 +18,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <!-- Шрифт грузим не блокируя разбор: media="print" + onload. Тот же приём, что на платформе. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261102-1154" />
-<link rel="stylesheet" href="css/brand.css?v=20261102-1154" />
+<link rel="stylesheet" href="css/app.css?v=20261102-1300" />
+<link rel="stylesheet" href="css/brand.css?v=20261102-1300" />
 </head>
 <body>
 
@@ -139,6 +139,17 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
   <p class="util" id="waitNote" role="status">Считаем расстановки…</p>
 </section>
 
+<!-- заглушка: поток закрыт, удалён или ушёл в архив (через 30 дней) -->
+<section class="frame enter hidden" id="screenClosed">
+  <img class="peter-heart" src="assets/peter-heart.png" alt="" aria-hidden="true" />
+  <h1 class="hero-h">К сожалению, этот тест больше не доступен</h1>
+  <p class="lead read" style="margin-top:24px">Поток закрыт или прошло больше 30 дней — тест и результаты по ссылке
+    больше не открываются.</p>
+  <p class="read">Если хотите пройти тест, напишите <a href="https://t.me/nikolaise" target="_blank" rel="noopener">@nikolaise</a>
+    в Телеграме — договоримся.</p>
+  <a class="btn btn-primary" href="https://t.me/nikolaise" target="_blank" rel="noopener" style="margin-top:12px">Написать в Телеграм</a>
+</section>
+
 <!-- 5. карта участника -->
 <section class="frame map hidden" id="screenMap">
   <img class="peter-win" src="assets/peter-win.png" alt="" aria-hidden="true" />
@@ -168,7 +179,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
   <!-- Ссылка на эту же карту. Без неё карта живёт до закрытия вкладки. -->
   <div class="info read hidden" id="keepBox" style="margin:32px 0 0">
     <p class="kicker" style="margin-bottom:6px">Чтобы вернуться к карте</p>
-    <p style="margin:0 0 12px">Сохраните ссылку — по ней карта откроется снова, с любого устройства.</p>
+    <p style="margin:0 0 12px">Сохраните ссылку — по ней карта откроется снова, с любого устройства.
+      <span id="keepUntil">Ссылка работает 30 дней.</span></p>
     <p class="util" style="margin:0 0 12px;word-break:break-all" id="keepLink"></p>
     <button class="btn btn-ghost btn-sm" id="keepCopy" type="button">Скопировать ссылку</button>
   </div>
@@ -180,8 +192,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 </main>
 
-<script src="js/config.js?v=20261102-1154"></script>
-<script src="js/api.js?v=20261102-1154"></script>
-<script src="js/test.js?v=20261102-1154"></script>
+<script src="js/config.js?v=20261102-1300"></script>
+<script src="js/api.js?v=20261102-1300"></script>
+<script src="js/test.js?v=20261102-1300"></script>
 </body>
 </html>

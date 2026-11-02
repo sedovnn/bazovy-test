@@ -101,8 +101,9 @@
     API.call('listSessions', {}).then(function (res) {
       tb.innerHTML = '';
       var all = res.sessions || [];
-      var list = all.filter(function (s) { return !s.deleted; });
+      var list = all.filter(function (s) { return !s.deleted && !s.archived; });
       renderTrash(all.filter(function (s) { return s.deleted; }));
+      renderArchive(all.filter(function (s) { return !s.deleted && s.archived; }));
       list.forEach(function (s) {
         var tr = document.createElement('tr');
         tr.className = 'sess-row' + (s.current ? '' : ' is-old');
@@ -124,6 +125,37 @@
       if (needLogin(err)) return toLogin();
       tb.innerHTML = '';
       $('sessNote').textContent = 'Не получилось загрузить список: ' + err.message;
+    });
+  }
+
+  /* Архив: потоки старше 30 дней. Участникам закрыты, ответы — файлом. */
+  function renderArchive(old) {
+    $('archiveBox').classList.toggle('hidden', !old.length);
+    $('archiveSum').textContent = 'Архив (' + old.length + ')';
+    var ul = $('archiveList');
+    ul.innerHTML = '';
+    var token = encodeURIComponent(API.token());
+    old.forEach(function (s) {
+      var li = document.createElement('li');
+      var n = document.createElement('span');
+      n.className = 'cand-name';
+      n.textContent = (s.title || '—') + ' · ' + s.code;
+      li.appendChild(n);
+      var w = document.createElement('span');
+      w.className = 'util';
+      w.textContent = fmtDate(s.createdAt) + ' · прошли ' + s.count;
+      li.appendChild(w);
+      var acts = document.createElement('span');
+      acts.className = 'cand-acts';
+      [['csv', 'Скачать CSV'], ['json', 'Скачать JSON']].forEach(function (f) {
+        var a = document.createElement('a');
+        a.className = 'btn btn-ghost btn-sm';
+        a.href = 'admin/export.' + f[0] + '?code=' + encodeURIComponent(s.code) + '&token=' + token;
+        a.textContent = f[1];
+        acts.appendChild(a);
+      });
+      li.appendChild(acts);
+      ul.appendChild(li);
     });
   }
 
