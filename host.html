@@ -17,8 +17,8 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=block" />
 
-<link rel="stylesheet" href="css/app.css?v=20261031-1722" />
-<link rel="stylesheet" href="css/brand-host.css?v=20261031-1722" />
+<link rel="stylesheet" href="css/app.css?v=20261102-1154" />
+<link rel="stylesheet" href="css/brand-host.css?v=20261102-1154" />
 </head>
 <body class="op">
 
@@ -181,7 +181,7 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
         <span class="util" id="refreshNote">обновляется раз в 15 секунд</span>
       </p>
 
-      <p class="util" style="margin-top:24px" id="namesNote">Имён здесь нет — только сводка по группе и, ниже, комментарии без авторов.</p>
+      <p class="util" style="margin-top:24px" id="namesNote">Имён здесь нет: сводка по группе, комментарии без авторов, а прохождения — под номерами по порядку отправки.</p>
     </div>
 
   </div>
@@ -200,13 +200,13 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
   </div>
 
 
-  <!-- Кандидаты именной сессии: имя, результат, разбор. Свёрнуто — имена на экране
-       не видны, пока ведущий сам не раскроет (экран могут показывать группе). -->
+  <!-- Прохождения: имя (в обезличенной сессии — номер), результат, разбор. Свёрнуто —
+       ничего личного на экране, пока ведущий сам не раскроет (экран могут показывать группе). -->
   <details class="details hidden" id="candBox" style="margin-top:48px">
     <summary id="candSum">Кандидаты</summary>
     <div class="details-body">
       <p class="util" style="margin:0 0 16px" id="candNote">Результат открывается в новой вкладке —
-        тем же экраном, что видел сам кандидат.</p>
+        тем же экраном, что видел сам участник.</p>
       <ul class="cand-list" id="candList"></ul>
     </div>
   </details>
@@ -234,9 +234,9 @@ if (/github\.io$/.test(location.hostname) && !new URLSearchParams(location.searc
 
 </main>
 
-<script src="js/config.js?v=20261031-1722"></script>
-<script src="js/qr.js?v=20261031-1722"></script>
-<script src="js/api.js?v=20261031-1722"></script>
-<script src="js/host.js?v=20261031-1722"></script>
+<script src="js/config.js?v=20261102-1154"></script>
+<script src="js/qr.js?v=20261102-1154"></script>
+<script src="js/api.js?v=20261102-1154"></script>
+<script src="js/host.js?v=20261102-1154"></script>
 </body>
 </html>

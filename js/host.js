@@ -210,16 +210,15 @@
     timer = setInterval(refresh, REFRESH_MS);
   }
 
-  /* ---- кандидаты именной сессии ---- */
+  /* ---- прохождения: в именной сессии — по именам, в обезличенной — по номерам ---- */
 
   function refreshCandidates() {
-    $('candBox').classList.toggle('hidden', !identify);
     $('namesNote').classList.toggle('hidden', identify);
-    if (!identify) return;
     API.call('candidates', { code: code }).then(function (res) {
       var ul = $('candList');
       ul.innerHTML = '';
-      $('candSum').textContent = 'Кандидаты — ' + res.items.length;
+      $('candBox').classList.remove('hidden');
+      $('candSum').textContent = (identify ? 'Кандидаты — ' : 'Прохождения — ') + res.items.length;
       if (!res.items.length) {
         ul.innerHTML = '<li class="util">Пока никто не отправил ответы.</li>';
         return;
@@ -257,7 +256,8 @@
     }).catch(function (err) {
       $('candList').innerHTML = '';
       if (needLogin(err)) return toLogin();
-      $('candNote').textContent = 'Не получилось загрузить кандидатов: ' + err.message;
+      $('candBox').classList.remove('hidden');
+      $('candNote').textContent = 'Не получилось загрузить прохождения: ' + err.message;
     });
   }
 
@@ -278,6 +278,7 @@
     var detail;
     API.call('candidateDetail', { code: code, rowId: it.rowId }).then(function (res) {
       detail = res;
+      if (!identify) detail.name = it.name;   // в обезличенной — тот же номер, что в списке
       var meta = CONFIG.tests.filter(function (t) { return t.id === res.testId; })[0];
       if (!meta) throw new Error('кейс ' + res.testId + ' не найден');
       return fetch(meta.file).then(function (r) { return r.json(); });

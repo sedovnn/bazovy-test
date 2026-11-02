@@ -834,15 +834,15 @@ function publicSession(s) {
   return { code: s.code, title: s.title, stage: s.stage, testId: s.testId, identify: s.identify };
 }
 
-/* Кандидаты именной сессии — только по ключу ведущего. Имя, время и адрес
-   результата (row_id): результат открывается тем же экраном, что видит
-   сам кандидат. У сессий, заведённых до ключей, списка нет. */
+/* Прохождения сессии — только по ключу ведущего. Имя (в обезличенной
+   сессии — номер по порядку отправки), время и адрес результата (row_id):
+   результат открывается тем же экраном, что видел сам участник. Ведущему
+   нужно видеть, какой отчёт выдал судья, и в обезличенных сессиях тоже. */
 function candidates(p) {
   var code = String(p.code || '').toUpperCase();
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
   if (!hostAllowed(p, session)) return { ok: false, error: 'no_key' };
-  if (!session.identify) return { ok: true, identify: false, items: [] };
 
   var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
   var head = values[0].map(function (h) { return String(h); });
@@ -855,11 +855,15 @@ function candidates(p) {
     items.push({ name: String(values[i][iName] || '').trim() || 'без имени', rowId: String(values[i][iRow]), submittedAt: String(values[i][iAt] || ''),
                  judged: String(values[i][iJudge] || '') === 'ok' });
   }
+  if (!session.identify) {
+    items.sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
+    items.forEach(function (it, n) { it.name = 'Участник ' + (n + 1); });
+  }
   items.sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
-  return { ok: true, identify: true, items: items };
+  return { ok: true, identify: session.identify, items: items };
 }
 
-/* Полный разбор одного прохождения для ведущего — только именная сессия и ключ ведущего:
+/* Полный разбор одного прохождения для ведущего — только по ключу ведущего:
    расстановка по каждой ветке с уровнями комментариев, свои комментарии,
    по каждой способности — уровень, границы с цитатами и тексты для человека.
    Тексты комментариев фронт берёт из файла кейса: здесь только метки и уровни. */
@@ -868,7 +872,6 @@ function candidateDetail(p) {
   var session = findSession(code);
   if (!session) return { ok: false, error: 'no_session' };
   if (!hostAllowed(p, session)) return { ok: false, error: 'no_key' };
-  if (!session.identify) return { ok: false, error: 'Разбор есть только у именной сессии' };
 
   var values = sheet(SHEET_RESPONSES).getDataRange().getValues();
   var head = values[0].map(function (h) { return String(h); });
